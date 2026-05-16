@@ -51,6 +51,36 @@ log()  { printf "[%s] %s\n" "$(date +'%H:%M:%S')" "$*"; }
 warn() { printf "[%s] WARN: %s\n" "$(date +'%H:%M:%S')" "$*" >&2; }
 err()  { printf "[%s] ERROR: %s\n" "$(date +'%H:%M:%S')" "$*" >&2; }
 
+# ----- Usage / argument handling -----
+usage() {
+  cat <<'EOF'
+install_binaries.sh — install a minimal SRE/Platform/Security toolchain.
+
+Usage:
+  install_binaries.sh [-h|--help]
+
+Configuration is via environment variables:
+  DEST_DIR         Install target dir            (default: /usr/local/bin)
+  FORCE            Overwrite existing binaries    (default: 0)
+  DRY_RUN          Print actions, don't execute   (default: 0)
+  PARALLEL         Reserved (currently unused)    (default: 0)
+  GITHUB_TOKEN     GitHub API token (avoids rate limits)
+  TMP_BASE         Base temp dir                  (default: /var/tmp/minimal-sre-lab-installer)
+  VERSION_LOG      Installed-versions manifest    (default: DEST_DIR/.sre-toolchain-versions.json)
+  CHECKSUM_POLICY  strict | best-effort           (default: best-effort)
+
+Examples:
+  DRY_RUN=1 install_binaries.sh
+  CHECKSUM_POLICY=strict GITHUB_TOKEN=ghp_xxx install_binaries.sh
+EOF
+}
+
+case "${1:-}" in
+  -h|--help) usage; exit 0 ;;
+  "")        : ;;
+  *)         err "Unknown argument: $1"; usage >&2; exit 2 ;;
+esac
+
 # ----- Dependency check -----
 MISSING_DEPS=()
 for cmd in curl jq tar unzip sha256sum; do
@@ -74,7 +104,7 @@ fi
 mkdir -p "$TMP_BASE"
 chmod 700 "$TMP_BASE" 2>/dev/null || true
 TMP_DIR="$(mktemp -d -p "$TMP_BASE" minimal-sre.XXXXXX)"
-trap 'rm -rf "$TMP_DIR"' EXIT
+trap 'rm -rf "$TMP_DIR"' EXIT INT TERM
 
 # ----- Curl defaults -----
 CURL_ARGS=(
@@ -85,8 +115,24 @@ CURL_ARGS=(
 )
 [[ -n "$GITHUB_TOKEN" ]] && CURL_ARGS+=(-H "Authorization: Bearer $GITHUB_TOKEN")
 
+# API calls must NOT use -f: curl -f discards the response body on HTTP
+# errors, which would hide the JSON ".message" needed to detect rate
+# limiting and to report meaningful failures.
+API_CURL_ARGS=(
+  -LsS --retry 3 --retry-delay 2 --connect-timeout 10
+  --proto '=https' --tlsv1.2
+  -H "Accept: application/vnd.github+json"
+  -H "User-Agent: minimal-sre-lab-installer/2.0"
+)
+[[ -n "$GITHUB_TOKEN" ]] && API_CURL_ARGS+=(-H "Authorization: Bearer $GITHUB_TOKEN")
+
 need_sudo=0
 [[ -w "$DEST_DIR" ]] || need_sudo=1
+if [[ "$need_sudo" -eq 1 && "$DRY_RUN" -eq 0 ]] && ! command -v sudo >/dev/null 2>&1; then
+  err "DEST_DIR '${DEST_DIR}' is not writable and 'sudo' is not available."
+  err "Re-run as root, set a writable DEST_DIR, or install sudo."
+  exit 1
+fi
 
 # ----- Version tracking -----
 declare -A INSTALLED_VERSIONS=()
@@ -127,20 +173,37 @@ extract_archive() {
 }
 
 get_release_json() {
-  local repo="$1"
-  local rj
-  rj="$(curl -s "${CURL_ARGS[@]}" "https://api.github.com/repos/${repo}/releases/latest")"
-  # Detect rate limiting early
-  if echo "$rj" | jq -e '.message // empty' | grep -qi "rate limit" 2>/dev/null; then
-    err "GitHub API rate limit hit. Set GITHUB_TOKEN to authenticate."
-    return 1
-  fi
-  echo "$rj"
+  local repo="$1" resp http body
+  # -w appends "\n<http_code>" so the status is always the final line,
+  # even though the JSON body itself spans many lines.
+  resp="$(curl "${API_CURL_ARGS[@]}" -w '\n%{http_code}' \
+            "https://api.github.com/repos/${repo}/releases/latest")" \
+    || { err "Network error fetching release metadata for ${repo}"; return 1; }
+  http="${resp##*$'\n'}"
+  body="${resp%$'\n'*}"
+  case "$http" in
+    200)
+      printf '%s' "$body"
+      return 0
+      ;;
+    403|429)
+      if printf '%s' "$body" | grep -qi 'rate limit'; then
+        err "GitHub API rate limit hit. Set GITHUB_TOKEN to authenticate."
+      else
+        err "GitHub API forbidden (HTTP ${http}) for ${repo}."
+      fi
+      return 1
+      ;;
+    *)
+      err "GitHub API returned HTTP ${http:-?} for ${repo}."
+      return 1
+      ;;
+  esac
 }
 
 select_asset() {
   local release_json="$1" regex="$2"
-  echo "$release_json" | jq -r --arg rx "$regex" '
+  printf '%s\n' "$release_json" | jq -r --arg rx "$regex" '
     .assets[]?
     | select(.name | test($rx; "i"))
     | "\(.name)\t\(.browser_download_url)"
@@ -149,7 +212,7 @@ select_asset() {
 
 select_assets() {
   local release_json="$1" regex="$2"
-  echo "$release_json" | jq -r --arg rx "$regex" '
+  printf '%s\n' "$release_json" | jq -r --arg rx "$regex" '
     .assets[]?
     | select(.name | test($rx; "i"))
     | "\(.name)\t\(.browser_download_url)"
@@ -164,20 +227,29 @@ verify_sha256() {
   local sel checksum_name checksum_url checksum_file expected actual
 
   _read_expected_hash() {
-    local f="$1" a="$2"
-    local h
+    local f="$1" a="$2" h nlines
 
-    # Entry mentioning the asset by name
-    h="$(grep -E "([[:space:]]|^)(\\*|)?${a}([[:space:]]|$)" "$f" 2>/dev/null | head -n1 | awk '{print $1}')"
-    if [[ -n "$h" && "$h" =~ ^[A-Fa-f0-9]{64}$ ]]; then echo "$h"; return 0; fi
-
-    # Path-based match
-    h="$(grep -E "([[:space:]]|^).*/${a}([[:space:]]|$)" "$f" 2>/dev/null | head -n1 | awk '{print $1}')"
-    if [[ -n "$h" && "$h" =~ ^[A-Fa-f0-9]{64}$ ]]; then echo "$h"; return 0; fi
-
-    # Sole hash in a per-asset checksum file
-    h="$(head -n1 "$f" | awk '{print $1}')"
+    # Standard "<sha256>  <name>" / "<sha256> *<name>" lines. Match the
+    # filename exactly (or as an exact path suffix) using string ops, so
+    # asset names containing regex metacharacters can neither be
+    # misinterpreted nor match the wrong entry.
+    h="$(awk -v name="$a" '
+          { fn=$2; sub(/^\*/, "", fn)
+            if (fn == name) { print $1; exit }
+            suf = "/" name; lf = length(fn); ls = length(suf)
+            if (lf >= ls && substr(fn, lf - ls + 1) == suf) { print $1; exit } }
+        ' "$f" 2>/dev/null)"
     if [[ "$h" =~ ^[A-Fa-f0-9]{64}$ ]]; then echo "$h"; return 0; fi
+
+    # Per-asset checksum file containing only the hash (no filename).
+    # Restricted to genuinely single-entry files: applying this to a
+    # multi-entry bundle would return an unrelated hash and trigger a
+    # spurious MISMATCH abort.
+    nlines="$(grep -c . "$f" 2>/dev/null || echo 0)"
+    if [[ "${nlines:-0}" -le 1 ]]; then
+      h="$(awk 'NF { print $1; exit }' "$f" 2>/dev/null)"
+      if [[ "$h" =~ ^[A-Fa-f0-9]{64}$ ]]; then echo "$h"; return 0; fi
+    fi
 
     return 1
   }
@@ -288,7 +360,7 @@ install_gh() {
 
   local rj tag sel asset_name url
   rj="$(get_release_json "$repo")" || { (( INSTALL_FAIL++ )) || true; return 1; }
-  tag="$(echo "$rj" | jq -r '.tag_name // empty')"
+  tag="$(printf '%s' "$rj" | jq -r '.tag_name // empty')"
   if [[ -z "$tag" || "$tag" == "null" ]]; then
     err "Cannot resolve tag for ${repo} (rate limit/auth/empty release?)"
     (( INSTALL_FAIL++ )) || true
@@ -359,7 +431,7 @@ install_kubectx() {
 
   local rj tag src_tgz ext base
   rj="$(get_release_json "ahmetb/kubectx")" || { (( INSTALL_FAIL++ )) || true; return 1; }
-  tag="$(echo "$rj" | jq -r '.tag_name // empty')"
+  tag="$(printf '%s' "$rj" | jq -r '.tag_name // empty')"
   if [[ -z "$tag" || "$tag" == "null" ]]; then
     err "Cannot resolve tag for ahmetb/kubectx"
     (( INSTALL_FAIL++ )) || true
@@ -371,6 +443,15 @@ install_kubectx() {
     INSTALLED_VERSIONS["kubectx"]="$tag"
     INSTALLED_VERSIONS["kubens"]="$tag"
     return 0
+  fi
+
+  # kubectx/kubens are shell scripts in a source tarball with no published
+  # checksum. Honor the documented strict contract instead of silently
+  # installing unverified content.
+  if [[ "$CHECKSUM_POLICY" == "strict" ]]; then
+    err "STRICT: kubectx/kubens has no published checksum (source tarball). Aborting this tool."
+    (( INSTALL_FAIL++ )) || true
+    return 1
   fi
 
   src_tgz="${TMP_DIR}/kubectx-src.tgz"
@@ -399,23 +480,29 @@ write_version_manifest() {
   if [[ "$DRY_RUN" -eq 1 ]]; then return 0; fi
   if [[ "${#INSTALLED_VERSIONS[@]}" -eq 0 ]]; then return 0; fi
 
-  local tmpf="${TMP_DIR}/versions.json"
+  local tmpf="${TMP_DIR}/versions.json" bin
+  # Emit sorted "name<TAB>version" pairs and let jq assemble the JSON, so
+  # unusual characters in tags can never produce an invalid manifest.
   {
-    echo "{"
-    echo "  \"generated\": \"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\","
-    echo "  \"arch\": \"${ARCH}\","
-    echo "  \"os\": \"${OS}\","
-    echo "  \"checksum_policy\": \"${CHECKSUM_POLICY}\","
-    echo "  \"tools\": {"
-    local first=1
-    for bin in $(echo "${!INSTALLED_VERSIONS[@]}" | tr ' ' '\n' | sort); do
-      [[ "$first" -eq 1 ]] && first=0 || echo ","
-      printf '    "%s": "%s"' "$bin" "${INSTALLED_VERSIONS[$bin]}"
+    for bin in "${!INSTALLED_VERSIONS[@]}"; do
+      printf '%s\t%s\n' "$bin" "${INSTALLED_VERSIONS[$bin]}"
     done
-    echo ""
-    echo "  }"
-    echo "}"
-  } > "$tmpf"
+  } | sort | jq -R -s \
+        --arg generated "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
+        --arg arch "$ARCH" --arg os "$OS" --arg policy "$CHECKSUM_POLICY" '
+        {
+          generated: $generated,
+          arch: $arch,
+          os: $os,
+          checksum_policy: $policy,
+          tools: (
+            split("\n")
+            | map(select(length > 0) | split("\t"))
+            | map({ (.[0]): .[1] })
+            | add // {}
+          )
+        }
+      ' > "$tmpf"
 
   if [[ "$need_sudo" -eq 1 ]]; then
     sudo cp "$tmpf" "$VERSION_LOG"
@@ -468,9 +555,18 @@ run_installs() {
     "^conftest_.*_${OS}_${CONFTEST_ARCH}\\.tar\\.gz$" "archive"
 
   # --- Load testing (k6 asset naming varies across releases) ---
-  install_gh "grafana/k6" "k6" "^k6-.*-${OS}-${ARX}\\.tar\\.gz$" "archive" || \
-    install_gh "grafana/k6" "k6" "^k6-.*${OS}.*${ARX}.*\\.tar\\.gz$" "archive" || \
+  # Try a strict pattern, then a looser one. A failed first attempt bumps
+  # INSTALL_FAIL inside install_gh, so reconcile the counters afterwards to
+  # count k6 exactly once (otherwise a successful fallback would still leave
+  # a phantom failure and the script would exit non-zero).
+  local k6_fail_before=$INSTALL_FAIL
+  if install_gh "grafana/k6" "k6" "^k6-.*-${OS}-${ARX}\\.tar\\.gz$" "archive" \
+     || install_gh "grafana/k6" "k6" "^k6-.*${OS}.*${ARX}.*\\.tar\\.gz$" "archive"; then
+    INSTALL_FAIL=$k6_fail_before
+  else
+    INSTALL_FAIL=$((k6_fail_before + 1))
     warn "k6: no matching asset found for ${OS}/${ARCH}"
+  fi
 
   # --- K8s manifest validation / lint ---
   install_gh "yannh/kubeconform" "kubeconform" \
