@@ -60,6 +60,27 @@ All shell scripts in this repository follow the conventions in
 - `DRY_RUN=1` support where applicable
 - No hardcoded secrets; HTTPS for any downloads; verify checksums
 
+## Local development
+
+```bash
+pip install pre-commit
+pre-commit install
+pre-commit run --all-files
+```
+
+CI mirrors the local hooks (`bash -n`, `shellcheck`, `shfmt -d`,
+`pre-commit run --all-files`). See
+[`.github/workflows/lint.yml`](.github/workflows/lint.yml).
+
+## Governance
+
+- [`CONTRIBUTING.md`](./CONTRIBUTING.md) — branch naming, the local loop,
+  PR expectations, placement rules.
+- [`CHANGELOG.md`](./CHANGELOG.md) — Keep-a-Changelog 1.1.0 format.
+- [`.github/SECURITY.md`](./.github/SECURITY.md) — vulnerability reporting.
+- [`CLAUDE.md`](./CLAUDE.md) — AI-authoring contract and shell-script
+  conventions.
+
 ## License
 
-Apache-2.0. See [`LICENSE`](./LICENSE).
+Apache-2.0. See [`LICENSE`](./LICENSE) and [`NOTICE`](./NOTICE).
