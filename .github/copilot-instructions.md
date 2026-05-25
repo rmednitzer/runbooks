@@ -1,6 +1,6 @@
 # Copilot Instructions
 
-This repository contains a collection of utility scripts for SRE/Platform/Security toolchain setup and management.
+This is the runbooks repository (formerly `scripts`) — ad-hoc operator shell scripts for recurring fleet tasks (LVM extensions, certificate renewals, log triage, manual recovery). Companion repositories: `infra` (OpenTofu) and `automation` (Ansible).
 
 ## General Guidelines
 
