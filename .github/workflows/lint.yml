@@ -2,7 +2,7 @@ name: lint
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
 
 permissions:
@@ -10,9 +10,10 @@ permissions:
 
 jobs:
   shellcheck:
+    name: shellcheck + bash syntax
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: shellcheck version
         run: shellcheck --version
@@ -22,3 +23,41 @@ jobs:
 
       - name: shellcheck
         run: find . -type f -name '*.sh' -print -exec shellcheck --severity=warning {} +
+
+  shfmt:
+    name: shfmt format check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install shfmt
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shfmt
+          shfmt --version
+
+      - name: shfmt diff
+        run: |
+          if ! find . -type f -name '*.sh' -print0 \
+              | xargs -0 -r shfmt -d -i 2 -ci -sr; then
+            echo
+            echo "Run 'shfmt -w -i 2 -ci -sr **/*.sh' locally to fix."
+            exit 1
+          fi
+
+  pre-commit:
+    name: pre-commit (hygiene + EditorConfig)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      # shellcheck / shfmt already run as dedicated jobs above; skip them
+      # here so this job stays fast and doesn't double-report.
+      - name: Run hygiene hooks
+        uses: pre-commit/action@v3.0.1
+        env:
+          SKIP: shellcheck,shfmt
