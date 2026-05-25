@@ -1,71 +1,64 @@
-# Scripts
+# runbooks
 
-Utility scripts for SRE / Platform / Security toolchain setup and management.
+Ad-hoc operator scripts for recurring fleet tasks — disk and filesystem
+management, log rotation triage, certificate renewal, manual rollback
+helpers, and similar one-off procedures that do not warrant a full
+configuration-management role.
 
-## Contents
+This repository was previously named `scripts`. Companion repositories:
+`infra` (OpenTofu provisioning) and `automation` (Ansible configuration
+and hardening).
 
-| Path | Description |
-|------|-------------|
-| `Software/install_binaries.sh` | Installs a minimal, high-leverage SRE/Platform/Security toolchain into `/usr/local/bin`. |
+## When to add a script here
 
-## `Software/install_binaries.sh`
+A script belongs in `runbooks` when:
 
-Downloads pinned-to-latest release binaries from GitHub, verifies SHA256
-checksums where published, installs them idempotently, and writes a JSON
-manifest of installed versions.
+- It is run manually by an operator in response to a specific event
+  (a disk filling up, a certificate near expiry, a stuck cron job)
+- It is not idempotent enough to live inside an Ansible role
+- It does not provision new infrastructure (that is `infra`'s job)
+- It does not enforce baseline configuration (that is `automation`'s job)
 
-Installed tools: `kind`, `kustomize`, `stern`, `kubectx`/`kubens`, `flux`,
-`trivy`, `syft`, `cosign`, `sops`, `age`/`age-keygen`, `opa`, `conftest`,
-`k6`, `kubeconform`, `kube-score`, `kube-linter`, `dive`.
+If a procedure is run more than a few times across the fleet, consider
+promoting it to an Ansible role in the `automation` repository instead.
 
-### Usage
+## When NOT to add a script here
 
-```bash
-# Show usage and exit (no changes made)
-./Software/install_binaries.sh --help
+- Infrastructure provisioning → `infra` (OpenTofu)
+- System hardening, baseline config, package management → `automation`
+  (Ansible roles)
+- SRE toolchain installation → `automation/roles/sre_toolchain`
+  (replaces the former `scripts/Software/install_binaries.sh`)
 
-# Preview everything without installing
-DRY_RUN=1 ./Software/install_binaries.sh
+## Layout (proposed)
 
-# Normal install (use a token to avoid GitHub API rate limits)
-GITHUB_TOKEN=ghp_xxx ./Software/install_binaries.sh
-
-# Require published checksums for every tool
-CHECKSUM_POLICY=strict GITHUB_TOKEN=ghp_xxx ./Software/install_binaries.sh
+```
+runbooks/
+├── README.md
+├── CLAUDE.md
+├── LICENSE
+├── storage/        # LVM extends, filesystem resizes, disk checks
+├── certificates/   # TLS cert inspection, renewal triggers
+├── logs/           # log rotation triage, journal vacuums
+├── network/        # ad-hoc DNS / firewall / routing checks
+└── recovery/       # manual rollback helpers, breakglass scripts
 ```
 
-### Configuration
-
-All configuration is via environment variables:
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `DEST_DIR` | `/usr/local/bin` | Install target directory. `sudo` is used automatically if it is not writable. |
-| `FORCE` | `0` | `1` overwrites binaries that are already present. |
-| `DRY_RUN` | `0` | `1` prints actions without downloading or installing. |
-| `PARALLEL` | `0` | Reserved; concurrent downloads are not yet implemented. |
-| `GITHUB_TOKEN` | _(unset)_ | GitHub API token. Strongly recommended to avoid 60-req/hr unauthenticated rate limits. |
-| `TMP_BASE` | `/var/tmp/minimal-sre-lab-installer` | Base directory for the per-run temp dir. |
-| `VERSION_LOG` | `${DEST_DIR}/.sre-toolchain-versions.json` | Path of the installed-versions manifest. |
-| `CHECKSUM_POLICY` | `best-effort` | `strict` aborts a tool when no checksum is published; `best-effort` warns and proceeds. |
-
-### Requirements
-
-`curl`, `jq`, `tar`, `unzip`, `sha256sum` (checked at startup). `xz` is
-needed only for `.tar.xz` assets; `sudo` only when `DEST_DIR` is not
-writable by the current user.
-
-### Exit codes
-
-- `0` — all selected tools installed or already present.
-- `1` — one or more tools failed (details printed); or a fatal precondition.
-- `2` — invalid command-line argument.
+Add new top-level directories as the catalogue grows. Each script lives
+under one category and is named for its action
+(e.g. `storage/extend-lvm.sh`, `certificates/renew-letsencrypt.sh`).
 
 ## Conventions
 
-See [`CLAUDE.md`](./CLAUDE.md) and
-[`.github/copilot-instructions.md`](./.github/copilot-instructions.md) for
-the coding conventions all scripts in this repository follow.
+All shell scripts in this repository follow the conventions in
+[`CLAUDE.md`](./CLAUDE.md):
+
+- `#!/usr/bin/env bash` with `set -euo pipefail`
+- Idempotent and safe to re-run where the procedure allows it
+- Configuration via environment variables with sensible defaults
+- Dependencies validated at startup with `command -v`
+- `DRY_RUN=1` support where applicable
+- No hardcoded secrets; HTTPS for any downloads; verify checksums
 
 ## License
 
