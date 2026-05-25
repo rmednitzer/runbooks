@@ -5,7 +5,7 @@
 ## Type of Change
 
 - [ ] New script
-- [ ] Fix to an existing script
+- [ ] Bug fix
 - [ ] Documentation update
 - [ ] CI / tooling change
 
@@ -19,7 +19,7 @@
 - [ ] `DRY_RUN=1` is supported where applicable
 - [ ] No hardcoded secrets, credentials, or API tokens
 - [ ] Downloaded artifacts are fetched over HTTPS and checksum-verified
-- [ ] `[Unreleased]` entry added to [`CHANGELOG.md`](../CHANGELOG.md)
+- [ ] `[Unreleased]` entry added to [`CHANGELOG.md`](/rmednitzer/runbooks/blob/main/CHANGELOG.md)
 - [ ] Header comment block documents purpose, requirements, and
       environment variables
 

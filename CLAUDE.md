@@ -28,6 +28,9 @@ Ansible role in `automation` rather than scaling it horizontally here.
 
 ## Repository Structure
 
+The catalogue is empty today. Suggested top-level categories (create
+as scripts arrive):
+
 ```
 runbooks/
 ├── CLAUDE.md       # This file

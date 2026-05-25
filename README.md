@@ -30,7 +30,10 @@ promoting it to an Ansible role in `automation` instead.
   (Ansible roles)
 - SRE toolchain installation → `automation/roles/sre_toolchain`
 
-## Layout
+## Layout (proposed)
+
+The catalogue is empty today; the suggested top-level directories
+(create as scripts arrive) are:
 
 ```
 runbooks/
@@ -44,8 +47,7 @@ runbooks/
 └── recovery/       # manual rollback helpers, breakglass scripts
 ```
 
-Add new top-level directories as the catalogue grows. Each script lives
-under one category and is named for its action
+Each script lives under one category and is named for its action
 (e.g. `storage/extend-lvm.sh`, `certificates/renew-letsencrypt.sh`).
 
 ## Conventions
