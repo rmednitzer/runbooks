@@ -5,9 +5,10 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-- Slim `CONTRIBUTING.md`, `CHANGELOG.md`, `.github/SECURITY.md`, and the
-  README Governance section; consolidate the lint workflow into a single
-  pre-commit job (no change to hook coverage).
+- Add `.github/PULL_REQUEST_TEMPLATE.md`.
+- Sync governance docs (SECURITY policy shape, copilot instructions,
+  CONTRIBUTING wording, README Governance table) with the companion
+  `infra` and `automation` repos.
 
 ## [0.0.0]
 
@@ -16,5 +17,3 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `CONTRIBUTING.md`.
 - `.github/workflows/lint.yml` running shellcheck, shfmt, EditorConfig,
   and standard hygiene hooks.
-- Repository renamed from `scripts`; SRE-toolchain installer moved to
-  `automation/roles/sre_toolchain`.

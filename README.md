@@ -5,9 +5,10 @@ management, log rotation triage, certificate renewal, manual rollback
 helpers, and similar one-off procedures that do not warrant a full
 configuration-management role.
 
-This repository was previously named `scripts`. Companion repositories:
-`infra` (OpenTofu provisioning) and `automation` (Ansible configuration
-and hardening).
+Companion repositories: [`infra`](https://github.com/rmednitzer/infra)
+(OpenTofu provisioning) and
+[`automation`](https://github.com/rmednitzer/automation) (Ansible
+configuration and hardening).
 
 ## When to add a script here
 
@@ -20,7 +21,7 @@ A script belongs in `runbooks` when:
 - It does not enforce baseline configuration (that is `automation`'s job)
 
 If a procedure is run more than a few times across the fleet, consider
-promoting it to an Ansible role in the `automation` repository instead.
+promoting it to an Ansible role in `automation` instead.
 
 ## When NOT to add a script here
 
@@ -28,9 +29,11 @@ promoting it to an Ansible role in the `automation` repository instead.
 - System hardening, baseline config, package management → `automation`
   (Ansible roles)
 - SRE toolchain installation → `automation/roles/sre_toolchain`
-  (replaces the former `scripts/Software/install_binaries.sh`)
 
 ## Layout (proposed)
+
+The catalogue is empty today; the suggested top-level directories
+(create as scripts arrive) are:
 
 ```
 runbooks/
@@ -44,8 +47,7 @@ runbooks/
 └── recovery/       # manual rollback helpers, breakglass scripts
 ```
 
-Add new top-level directories as the catalogue grows. Each script lives
-under one category and is named for its action
+Each script lives under one category and is named for its action
 (e.g. `storage/extend-lvm.sh`, `certificates/renew-letsencrypt.sh`).
 
 ## Conventions
@@ -62,9 +64,17 @@ All shell scripts in this repository follow the conventions in
 
 ## Development
 
-`pre-commit install && pre-commit run --all-files` covers shellcheck,
-shfmt, EditorConfig, and the standard hygiene hooks. CI runs the same
-set via [`.github/workflows/lint.yml`](.github/workflows/lint.yml).
+```bash
+pip install pre-commit && pre-commit install
+pre-commit run --all-files
+```
+
+CI mirrors the hook set
+([`.github/workflows/lint.yml`](./.github/workflows/lint.yml)) and runs
+shellcheck, shfmt, EditorConfig, and the standard hygiene hooks. PRs
+cannot merge with failing CI.
+
+## Governance
 
 | File | Purpose |
 |------|---------|
@@ -72,4 +82,5 @@ set via [`.github/workflows/lint.yml`](.github/workflows/lint.yml).
 | [`CONTRIBUTING.md`](./CONTRIBUTING.md) | Workflow, branch naming, PR expectations |
 | [`CHANGELOG.md`](./CHANGELOG.md) | Keep a Changelog 1.1.0 |
 | [`.github/SECURITY.md`](./.github/SECURITY.md) | Vulnerability reporting |
+| [`.github/PULL_REQUEST_TEMPLATE.md`](./.github/PULL_REQUEST_TEMPLATE.md) | PR checklist |
 | [`LICENSE`](./LICENSE) / [`NOTICE`](./NOTICE) | Apache 2.0 |

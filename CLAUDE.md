@@ -2,18 +2,17 @@
 
 ## Project Overview
 
-This is the runbooks repository (formerly `scripts`) — ad-hoc operator
-shell scripts for recurring fleet tasks that do not belong in
-configuration management or infrastructure-as-code. Examples: LVM
-extension, filesystem resize, certificate renewal triggers, log rotation
-triage, manual rollback helpers.
+`runbooks` holds ad-hoc operator shell scripts for recurring fleet tasks
+that do not belong in configuration management or infrastructure-as-code.
+Examples: LVM extension, filesystem resize, certificate renewal triggers,
+log rotation triage, manual rollback helpers.
 
 Companion repositories:
 
-- `infra` (formerly `infra-ops`) — OpenTofu infrastructure provisioning
-- `automation` (formerly `ansible-ops`) — Ansible roles for fleet
-  hardening, configuration management, and the SRE toolchain installer
-  (which previously lived here as `Software/install_binaries.sh`)
+- `infra` — OpenTofu infrastructure provisioning
+- `automation` — Ansible roles for fleet hardening, configuration
+  management, and the SRE toolchain installer
+  (`automation/roles/sre_toolchain`)
 
 ## What belongs here
 
@@ -29,8 +28,8 @@ Ansible role in `automation` rather than scaling it horizontally here.
 
 ## Repository Structure
 
-The repository starts essentially empty after the toolchain installer
-migration. Suggested top-level categories (create as scripts arrive):
+The catalogue is empty today. Suggested top-level categories (create
+as scripts arrive):
 
 ```
 runbooks/
