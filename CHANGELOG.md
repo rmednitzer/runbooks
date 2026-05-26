@@ -5,15 +5,14 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-- Slim `README.md`: collapse the "When to add" / "When NOT to add" /
-  "Layout (proposed)" / "Conventions" sections (which duplicated content
-  in `CLAUDE.md`) into a single "Placement" paragraph that defers to
-  `CLAUDE.md` as the single source of truth for the catalogue layout and
-  script conventions. README drops from 87 to 50 lines; no policy change.
-- Add `.github/PULL_REQUEST_TEMPLATE.md`.
-- Sync governance docs (SECURITY policy shape, copilot instructions,
-  CONTRIBUTING wording, README Governance table) with the companion
-  `infra` and `automation` repos.
+- Optimise and rewrite every `.md` file end-to-end for tighter prose,
+  consistent voice, and uniform structure across the three companion
+  repos: `README.md`, `CLAUDE.md`, `CONTRIBUTING.md`,
+  `.github/SECURITY.md`, `.github/PULL_REQUEST_TEMPLATE.md`,
+  `.github/copilot-instructions.md`. The placement decision tree, the
+  catalogue tree, the script convention list, and the placement-to-
+  Ansible promotion rule all stay; the prose around them is shorter and
+  more imperative. No policy or workflow change.
 
 ## [0.0.0]
 
