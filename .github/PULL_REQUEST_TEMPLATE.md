@@ -20,7 +20,7 @@
 - [ ] Downloaded artifacts fetched over HTTPS and checksum-verified
 - [ ] Header comment documents purpose, requirements, environment
       variables
-- [ ] `[Unreleased]` entry added to [`CHANGELOG.md`](/rmednitzer/runbooks/blob/main/CHANGELOG.md)
+- [ ] `[Unreleased]` entry added to [`CHANGELOG.md`](../CHANGELOG.md)
 
 ## Operational context
 

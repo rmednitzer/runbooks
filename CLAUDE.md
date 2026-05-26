@@ -22,11 +22,12 @@ in `automation` — do not scale it horizontally here.
 
 ## Catalogue layout
 
-The catalogue is empty today. Create categories as scripts arrive; avoid
-catch-all bins (`misc/`, `utils/`).
+The catalogue is empty today. The tree below is the **suggested**
+layout — create the matching directory the first time a script in that
+category arrives, not before. Avoid catch-all bins (`misc/`, `utils/`).
 
 ```
-runbooks/
+runbooks/   # suggested categories (none exist on disk yet)
 ├── storage/        # LVM, filesystem, disk
 ├── certificates/   # TLS / PKI helpers
 ├── logs/           # Log rotation triage, journal vacuums
