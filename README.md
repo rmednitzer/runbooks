@@ -20,10 +20,8 @@ baseline configuration (`automation`'s job — including the SRE toolchain
 installer at `automation/roles/sre_toolchain`). If a procedure recurs across
 many hosts, promote it to an Ansible role in `automation` instead.
 
-The catalogue layout and full script conventions
-(`set -euo pipefail`, idempotency, `DRY_RUN=1`, `command -v` checks,
-checksum-verified downloads) live in [`CLAUDE.md`](./CLAUDE.md) — the
-single source of truth.
+The catalogue layout and full script conventions live in
+[`CLAUDE.md`](./CLAUDE.md) — the single source of truth.
 
 ## Development
 
