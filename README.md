@@ -10,57 +10,18 @@ Companion repositories: [`infra`](https://github.com/rmednitzer/infra)
 [`automation`](https://github.com/rmednitzer/automation) (Ansible
 configuration and hardening).
 
-## When to add a script here
+## Placement
 
-A script belongs in `runbooks` when:
+A script belongs in `runbooks` when it is run manually by an operator in
+response to a specific event (a disk filling up, a certificate near expiry,
+a stuck cron job), is not idempotent enough to live inside an Ansible role,
+and neither provisions new infrastructure (`infra`'s job) nor enforces
+baseline configuration (`automation`'s job — including the SRE toolchain
+installer at `automation/roles/sre_toolchain`). If a procedure recurs across
+many hosts, promote it to an Ansible role in `automation` instead.
 
-- It is run manually by an operator in response to a specific event
-  (a disk filling up, a certificate near expiry, a stuck cron job)
-- It is not idempotent enough to live inside an Ansible role
-- It does not provision new infrastructure (that is `infra`'s job)
-- It does not enforce baseline configuration (that is `automation`'s job)
-
-If a procedure is run more than a few times across the fleet, consider
-promoting it to an Ansible role in `automation` instead.
-
-## When NOT to add a script here
-
-- Infrastructure provisioning → `infra` (OpenTofu)
-- System hardening, baseline config, package management → `automation`
-  (Ansible roles)
-- SRE toolchain installation → `automation/roles/sre_toolchain`
-
-## Layout (proposed)
-
-The catalogue is empty today; the suggested top-level directories
-(create as scripts arrive) are:
-
-```
-runbooks/
-├── README.md
-├── CLAUDE.md
-├── LICENSE
-├── storage/        # LVM extends, filesystem resizes, disk checks
-├── certificates/   # TLS cert inspection, renewal triggers
-├── logs/           # log rotation triage, journal vacuums
-├── network/        # ad-hoc DNS / firewall / routing checks
-└── recovery/       # manual rollback helpers, breakglass scripts
-```
-
-Each script lives under one category and is named for its action
-(e.g. `storage/extend-lvm.sh`, `certificates/renew-letsencrypt.sh`).
-
-## Conventions
-
-All shell scripts in this repository follow the conventions in
-[`CLAUDE.md`](./CLAUDE.md):
-
-- `#!/usr/bin/env bash` with `set -euo pipefail`
-- Idempotent and safe to re-run where the procedure allows it
-- Configuration via environment variables with sensible defaults
-- Dependencies validated at startup with `command -v`
-- `DRY_RUN=1` support where applicable
-- No hardcoded secrets; HTTPS for any downloads; verify checksums
+The catalogue layout and full script conventions live in
+[`CLAUDE.md`](./CLAUDE.md) — the single source of truth.
 
 ## Development
 
