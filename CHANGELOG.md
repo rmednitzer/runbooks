@@ -5,6 +5,16 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- CI hardening for secret-scan coverage and supply-chain integrity:
+  add `gitleaks` to the pre-commit hook set (mirrored by CI) for
+  general secret scanning beyond the PEM-only `detect-private-key`;
+  pin every GitHub Actions reference in `.github/workflows/lint.yml`
+  to a full 40-char commit SHA, per GitHub's security-hardening
+  guidance that a full-length commit SHA is "currently the only way
+  to use an action as an immutable release"; add `timeout-minutes:
+  15` to the lint job and a workflow-level `concurrency` group with
+  `cancel-in-progress: true`. The hook set, severity levels, and
+  overall gate semantics are unchanged.
 - Seed the catalogue with six high-value operator scripts covering four
   of the five suggested categories in `CLAUDE.md`. Each script is
   self-contained, shellcheck/shfmt-clean, documents the WHY for a 03:00
