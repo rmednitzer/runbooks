@@ -12,7 +12,7 @@
 #   just check      # lint + fmt + test (the full gate)
 
 # The catalogue scripts, kept in one place so targets stay in sync.
-scripts := "certificates/check-cert-expiry.sh recovery/unlock-account.sh recovery/aide-acknowledge.sh storage/extend-lvm.sh storage/disk-usage-triage.sh logs/journal-vacuum.sh"
+scripts := "certificates/check-cert-expiry.sh recovery/unlock-account.sh recovery/aide-acknowledge.sh storage/extend-lvm.sh storage/disk-usage-triage.sh logs/journal-vacuum.sh network/dns-propagation-check.sh network/port-reachability.sh network/conntrack-triage.sh talos/talos-health-check.sh talos/etcd-snapshot.sh talos/etcd-restore.sh talos/upgrade-node.sh talos/kubeconfig-rotate.sh talos/reset-node.sh"
 
 # Default: show the available targets.
 default:
