@@ -28,3 +28,34 @@ jobs:
       # by .pre-commit-config.yaml — the single source of truth for tool
       # versions and arguments.
       - uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd  # v3.0.1
+
+  bats:
+    name: bats (script behaviour tests)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6
+
+      # Install bats-core from upstream rather than a third-party marketplace
+      # action. Pin to the exact commit and VERIFY it: a tag like v1.13.0 can
+      # be moved, so we check out the tag for readability but fail if its SHA
+      # is not the expected immutable commit.
+      - name: Install bats-core
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch v1.13.0 \
+            https://github.com/bats-core/bats-core /tmp/bats-core
+          expected=3bca150ec86275d6d9d5a4fd7d48ab8b6c6f3d87
+          actual="$(git -C /tmp/bats-core rev-parse HEAD)"
+          if [ "${actual}" != "${expected}" ]; then
+            echo "bats-core v1.13.0 SHA mismatch: got ${actual}, want ${expected}" >&2
+            exit 1
+          fi
+          sudo /tmp/bats-core/install.sh /usr/local
+
+      # Run as root: several scripts (aide-acknowledge.sh, extend-lvm.sh,
+      # journal-vacuum.sh) gate on EUID == 0, and GitHub-hosted runners
+      # provide passwordless sudo. The fake-binary PATH shims the tests set up
+      # work the same under root.
+      - name: Run bats suite
+        run: sudo --preserve-env=PATH bats tests/

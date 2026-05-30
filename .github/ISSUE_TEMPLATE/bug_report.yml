@@ -1,0 +1,86 @@
+name: Bug Report
+description: Report a script that misbehaves during an operation
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting a bug. These scripts run by hand during
+        incidents, so please include enough detail to reproduce safely.
+        Do NOT paste secrets, tokens, or full hostnames you cannot share.
+
+  - type: input
+    id: script
+    attributes:
+      label: Script
+      description: Path of the script involved.
+      placeholder: "storage/extend-lvm.sh"
+    validations:
+      required: true
+
+  - type: textarea
+    id: event
+    attributes:
+      label: Operational event
+      description: What were you responding to when you ran it (the page,
+        the alert, the change you were acknowledging)?
+      placeholder: "Disk-full alert on /var; tried to extend the LV."
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: A clear and concise description of the bug.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: invocation
+    attributes:
+      label: Invocation and output
+      description: The exact command (environment variables + any args)
+        and the script's output. Redact anything sensitive.
+      render: shell
+      placeholder: |
+        $ VG=data LV=app SIZE=+10G DRY_RUN=1 ./storage/extend-lvm.sh
+        [extend-lvm] ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: bash_version
+    attributes:
+      label: Bash version
+      description: Output of `bash --version` (first line).
+      render: shell
+    validations:
+      required: true
+
+  - type: input
+    id: host_os
+    attributes:
+      label: Host OS
+      description: Distribution and release of the host the script ran on.
+      placeholder: "Ubuntu 24.04 LTS"
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Anything else — relevant tool versions (openssl, aide,
+        lvm2, systemd), logs, or screenshots.
+    validations:
+      required: false
