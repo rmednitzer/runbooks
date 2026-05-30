@@ -1,0 +1,14 @@
+---
+version: 2
+updates:
+  # runbooks has no pip/requirements, but it does pin its GitHub Actions
+  # to commit SHAs — track those for security/maintenance bumps.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "ci"
+    labels:
+      - dependencies
+      - ci

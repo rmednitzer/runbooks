@@ -20,11 +20,16 @@ workflow only.
 
 ```bash
 pip install pre-commit && pre-commit install
-pre-commit run --all-files
+pre-commit run --all-files     # shellcheck, shfmt, EditorConfig, hygiene
+just test                      # bats tests/ (needs bats-core + just)
 ```
 
-CI ([`.github/workflows/lint.yml`](./.github/workflows/lint.yml)) mirrors
-the hook set. PRs cannot merge with failing CI.
+Every script carries bats coverage under [`tests/`](./tests/) for its
+`-h`/`--help`, argument validation, and `DRY_RUN` behaviour (fake
+binaries on `PATH` assert the real tool is never called). Add or update
+tests alongside any script change. CI
+([`.github/workflows/lint.yml`](./.github/workflows/lint.yml)) runs both
+the hook set and the bats suite; PRs cannot merge with failing CI.
 
 ## Pull request expectations
 

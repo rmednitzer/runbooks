@@ -1,0 +1,36 @@
+name: Documentation Issue
+description: Report missing, incorrect, or unclear documentation
+labels:
+  - documentation
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for helping improve the documentation. This includes a
+        script's header comment (the WHY block read by an operator at
+        03:00), its usage() text, README, CLAUDE.md, or CONTRIBUTING.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Describe what is missing, incorrect, or unclear.
+    validations:
+      required: true
+
+  - type: input
+    id: location
+    attributes:
+      label: Location
+      description: File path (and section or line) that needs attention.
+      placeholder: "recovery/aide-acknowledge.sh header, or README.md Governance"
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Any other context or suggestions for the fix.
+    validations:
+      required: false

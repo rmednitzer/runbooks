@@ -1,0 +1,55 @@
+name: Feature Request
+description: Propose a new operator script or an enhancement to one
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for the suggestion. Note the placement rules in
+        CLAUDE.md: scripts belong here only when they are run manually in
+        response to an event and do not fit Ansible (automation) or
+        OpenTofu (infra). Recurring fleet-wide work should become an
+        Ansible role instead.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: The script or enhancement you are proposing.
+    validations:
+      required: true
+
+  - type: textarea
+    id: event
+    attributes:
+      label: Triggering event
+      description: The operational scenario this addresses — the page,
+        the runbook step, or the manual task it would replace.
+    validations:
+      required: true
+
+  - type: textarea
+    id: placement
+    attributes:
+      label: Why runbooks (not automation or infra)?
+      description: Briefly justify placement here over an Ansible role or
+        OpenTofu, per the CLAUDE.md decision tree.
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Existing tools or manual procedures you have considered.
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Any other context, references, or examples.
+    validations:
+      required: false
