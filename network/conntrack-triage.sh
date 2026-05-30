@@ -176,10 +176,11 @@ main() {
   log ""
   log "--- top ${top_n} destination ports in the conntrack table ---"
   if [[ -n "${table}" ]]; then
-    # Pull every dport=NNN token, count and rank.
+    # The FIRST dport= on each line is the original-direction destination.
     # shellcheck disable=SC2312
     printf '%s\n' "${table}" |
-      grep -oE 'dport=[0-9]+' | sort | uniq -c | sort -rn |
+      awk '{ for (i = 1; i <= NF; i++) if ($i ~ /^dport=/) { print $i; break } }' |
+      sort | uniq -c | sort -rn |
       head -n "${top_n}" | awk '{ printf "    %8d  %s\n", $1, $2 }' || true
   else
     log "    (no readable conntrack table: install conntrack-tools or check"

@@ -187,6 +187,11 @@ main() {
   fi
 
   # Assemble the upgrade flags.
+  if [[ "${STAGE:-0}" != "0" && "${STAGE:-0}" != "1" ]]; then
+    err "STAGE must be 0 or 1 (got: ${STAGE}); refusing to fall back to an immediate upgrade"
+    exit 2
+  fi
+
   local -a upgrade_args=(upgrade --image "${IMAGE}")
   # `talosctl upgrade` has no --preserve flag: Talos preserves the EPHEMERAL
   # partition (pod data, images) across an upgrade by default. Use --stage to

@@ -131,7 +131,9 @@ main() {
   # path. --force replaces; default merges into an existing file.
   local -a kc_args=(kubeconfig "${out}")
   if [[ "${merge}" == "0" ]]; then
-    kc_args+=(--force)
+    # --force overwrites the file; --merge=false replaces (rather than merges)
+    # so stale contexts/users from the old kubeconfig do not survive.
+    kc_args+=(--force --merge=false)
   fi
 
   local mode_label="force-replace"

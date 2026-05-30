@@ -157,7 +157,15 @@ main() {
     local raw="${RESOLVERS//,/ }"
     for r in ${raw}; do resolvers+=("${r}"); done
   else
-    local -a public=(1.1.1.1 8.8.8.8 9.9.9.9 2606:4700:4700::1111 2001:4860:4860::8888)
+    local -a public=(1.1.1.1 8.8.8.8 9.9.9.9)
+    # Only add IPv6 anycast resolvers when this host actually has IPv6
+    # connectivity; otherwise they record <NO-ANSWER> and produce a false
+    # "divergence" verdict on IPv4-only hosts.
+    if command -v ip > /dev/null 2>&1; then
+      local v6_default
+      v6_default="$(ip -6 route show default 2> /dev/null)"
+      [[ -n "${v6_default}" ]] && public+=(2606:4700:4700::1111 2001:4860:4860::8888)
+    fi
     for r in "${public[@]}"; do resolvers+=("${r}"); done
     local hr
     # host_resolvers ends in `|| true`, so it cannot fail; the process
