@@ -10,10 +10,17 @@
 #   files, journal usage, and — critically — open deleted files held by
 #   running processes, which du alone will miss.
 #
-# Requirements
-#   - df, du, find (coreutils + findutils)
+# Requirements (bash >= 4; see CLAUDE.md)
+#   - GNU coreutils df/du (uses `df --output`, `df -x`, `du --max-depth`)
+#   - GNU findutils find (uses `-printf`, `-xdev`)
+#   - awk, sort, head, tail
+#   - findmnt (util-linux), used to validate MOUNT
 #   - lsof (optional; deleted-file scan skipped with a warning if absent)
 #   - journalctl (optional; journal report skipped if absent)
+#   - ionice/nice (optional; if present, the du walk runs at idle I/O and
+#     low CPU priority so triage does not pile onto a struggling box)
+#   These GNU-specific flags mean this script targets GNU/Linux, not
+#   BusyBox or BSD userland.
 #
 # Environment variables
 #   THRESHOLD     Mount usage % to trigger the deep scan (default 80).
@@ -32,6 +39,23 @@ set -euo pipefail
 log() { printf '[disk-triage] %s\n' "$*"; }
 warn() { printf '[disk-triage] WARN: %s\n' "$*" >&2; }
 err() { printf '[disk-triage] ERR: %s\n' "$*" >&2; }
+
+# Uniform failure reporting. This script is read-only and has no temp
+# files, so there is nothing to clean up on exit.
+trap 'err "failed at line ${LINENO}"; exit 1' ERR
+
+# Prefix (as an array) that drops the du walk to idle I/O + low CPU
+# priority when ionice/nice are available — important on a box that is
+# already paging at 03:00. Empty when neither tool is present.
+NICE_PREFIX=()
+init_nice_prefix() {
+  if command -v ionice > /dev/null 2>&1; then
+    NICE_PREFIX+=(ionice -c3)
+  fi
+  if command -v nice > /dev/null 2>&1; then
+    NICE_PREFIX+=(nice -n19)
+  fi
+}
 
 usage() {
   cat << 'EOF'
@@ -77,7 +101,9 @@ scan_mount() {
 
   log ""
   log "--- top ${top_n} directories under ${mp} (du, one-filesystem) ---"
-  du -x -h --max-depth=3 -- "${mp}" 2> /dev/null |
+  # The du walk is the heaviest part; run it at idle I/O + low CPU
+  # priority (NICE_PREFIX) so it does not worsen the incident.
+  "${NICE_PREFIX[@]}" du -x -h --max-depth=3 -- "${mp}" 2> /dev/null |
     sort -h |
     tail -n "${top_n}" || true
 
@@ -95,12 +121,16 @@ main() {
       usage
       exit 0
       ;;
+    *) ;;
   esac
 
   local threshold="${THRESHOLD:-80}"
   local top_n="${TOP_N:-10}"
   local min_mib="${MIN_FILE_MIB:-100}"
 
+  # is_int is a pure predicate; set -e being disabled in this test is the
+  # intended behaviour (we branch on it).
+  # shellcheck disable=SC2310
   if ! is_int "${threshold}" || ! is_int "${top_n}" || ! is_int "${min_mib}"; then
     err "THRESHOLD, TOP_N, MIN_FILE_MIB must be non-negative integers"
     exit 2
@@ -110,26 +140,52 @@ main() {
     exit 2
   fi
 
-  require_cmd df du find awk sort head tail
+  require_cmd df du find awk sort head tail findmnt
+  init_nice_prefix
+  if ((${#NICE_PREFIX[@]} > 0)); then
+    log "du walk niced via: ${NICE_PREFIX[*]}"
+  fi
 
   log "thresholds: usage >= ${threshold}%  top_n=${top_n}  min_file=${min_mib} MiB"
 
   local mounts=()
   if [[ -n "${MOUNT:-}" ]]; then
+    # set -e intentionally disabled for this branch test.
+    # shellcheck disable=SC2310
     if ! findmnt -no TARGET --target "${MOUNT}" > /dev/null 2>&1; then
       err "MOUNT is not a mountpoint: ${MOUNT}"
       exit 2
     fi
     mounts=("${MOUNT}")
   else
+    # M2: address columns by NAME (pcent,target) so spaces in a
+    # mountpoint do not shift fields, and read `target` as the remainder
+    # of the line. Drop the ext*/xfs/btrfs whitelist (which silently
+    # skipped zfs/f2fs/bcachefs and produced false "nothing above
+    # threshold") in favour of excluding known pseudo-filesystems.
     local line pct mp
+    # df's exit status is intentionally not propagated (a missing FS just
+    # yields no rows); tail strips the header line. is_int below is a pure
+    # predicate, branched on deliberately.
+    # shellcheck disable=SC2310,SC2312
     while IFS= read -r line; do
-      pct="$(awk '{print $5}' <<< "${line}" | tr -d '%')"
-      mp="$(awk '{print $6}' <<< "${line}")"
+      # `df --output=pcent,target` right-justifies pcent, so the line can
+      # have leading spaces — trim them first. pcent is then the first
+      # token (e.g. "87%"); target is the remainder (may contain spaces).
+      line="${line#"${line%%[![:space:]]*}"}"
+      pct="${line%%[[:space:]]*}"
+      pct="${pct%\%}"
+      mp="${line#"${pct}%"}"
+      mp="${mp#"${mp%%[![:space:]]*}"}"
+      [[ -z "${mp}" || "${mp}" == "target" ]] && continue
       if is_int "${pct}" && ((pct >= threshold)); then
         mounts+=("${mp}")
       fi
-    done < <(df -P --local --type=ext4 --type=ext3 --type=ext2 --type=xfs --type=btrfs 2> /dev/null | tail -n +2)
+    done < <(df -P --local --output=pcent,target \
+      -x tmpfs -x devtmpfs -x overlay -x squashfs -x ramfs \
+      -x proc -x sysfs -x cgroup -x cgroup2 -x devpts -x mqueue \
+      -x efivarfs -x autofs -x debugfs -x tracefs -x fuse.portal \
+      2> /dev/null | tail -n +2)
   fi
 
   if ((${#mounts[@]} == 0)); then
@@ -176,4 +232,7 @@ main() {
   log "  - LV full?     storage/extend-lvm.sh"
 }
 
-main "$@"
+# Only execute when run directly; sourcing (e.g. from bats) must not run main.
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  main "$@"
+fi
