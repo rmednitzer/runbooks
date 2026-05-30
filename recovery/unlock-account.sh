@@ -11,9 +11,11 @@
 #   to run if neither IP nor TARGET_USER is set, so it cannot silently
 #   no-op during an incident.
 #
-# Requirements
+# Requirements (bash >= 4; see CLAUDE.md)
 #   - fail2ban-client (when IP is set)
 #   - faillock from libpam-modules (when TARGET_USER is set)
+#   - python3 (optional; used for strict IP-literal validation, with a
+#     regex fallback when absent)
 #   - Must run as root.
 #
 # Environment variables
@@ -33,6 +35,10 @@ set -euo pipefail
 log() { printf '[unlock-account] %s\n' "$*"; }
 warn() { printf '[unlock-account] WARN: %s\n' "$*" >&2; }
 err() { printf '[unlock-account] ERR: %s\n' "$*" >&2; }
+
+# Uniform failure reporting: pinpoint the failing line for an operator
+# at 03:00. There are no temp files to clean up in this script.
+trap 'err "failed at line ${LINENO}"; exit 1' ERR
 
 usage() {
   cat << 'EOF'
@@ -66,6 +72,21 @@ run() {
   fi
 }
 
+# Like run(), but a non-zero exit from the command is informational, not
+# fatal — used for `fail2ban-client ... unbanip`, which exits non-zero
+# when the IP simply was not banned in that jail. Keeps a single DRY_RUN
+# code path (compare M4: previously unban_ip open-coded its own branch).
+run_ok() {
+  if [[ "${DRY_RUN:-0}" == "1" ]]; then
+    log "DRY_RUN: $*"
+    return 0
+  fi
+  log "+ $*"
+  if ! "$@"; then
+    log "  (command returned non-zero; treating as informational)"
+  fi
+}
+
 require_cmd() {
   local cmd
   for cmd in "$@"; do
@@ -76,21 +97,52 @@ require_cmd() {
   done
 }
 
-# Validate that a string looks like an IPv4 or IPv6 literal. Not a full
-# RFC validator — guards against accidental hostnames or empty values
-# being passed to fail2ban-client.
+# Validate that a string is an IPv4 or IPv6 literal before it is handed
+# to fail2ban-client. Two reasons this is fussy:
+#   * Octal trap (H5.1): bash treats a zero-padded octet like 08/09 as
+#     base-8, so a naive `(( oct <= 255 ))` aborts with "value too great
+#     for base". We force base-10 with 10#, and reject leading zeros
+#     outright (08.1.1.1 is malformed, not 8.1.1.1).
+#   * Loose IPv6 (H5.2): the old `^[0-9A-Fa-f:.]+$` accepted garbage such
+#     as "::::". We prefer python3's stdlib ipaddress (authoritative),
+#     and fall back to a stricter regex only when python3 is absent.
 is_ip_literal() {
   local s="$1"
+  [[ -z "${s}" ]] && return 1
+
+  # Authoritative path: python3 stdlib parses both families correctly
+  # and rejects 08.1.1.1, 256.x, "::::", and bare hostnames.
+  if command -v python3 > /dev/null 2>&1; then
+    python3 -c 'import ipaddress,sys; ipaddress.ip_address(sys.argv[1])' "${s}" > /dev/null 2>&1
+    return $?
+  fi
+
+  # Fallback (no python3): dotted-quad with each octet 0..255 and NO
+  # leading zeros.
   if [[ "${s}" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
     local oct
     for oct in ${s//./ }; do
-      ((oct <= 255)) || return 1
+      # Reject zero-padded octets (08, 007) but allow a bare 0.
+      [[ "${oct}" =~ ^0[0-9]+$ ]] && return 1
+      ((10#${oct} <= 255)) || return 1
     done
     return 0
   fi
-  if [[ "${s}" == *:* && "${s}" =~ ^[0-9A-Fa-f:.]+$ ]]; then
+
+  # Fallback IPv6: must contain a colon, use only hex digits and colons
+  # (plus an optional trailing dotted-quad tail), have no triple-colon,
+  # and contain at most one "::" run. This rejects "::::" and stray
+  # characters without reimplementing RFC 4291 in a regex.
+  if [[ "${s}" == *:* ]]; then
+    [[ "${s}" =~ ^[0-9A-Fa-f:]+(\.[0-9]{1,3}){0,3}$ ]] || return 1
+    [[ "${s}" == *:::* ]] && return 1
+    # Count "::" runs by collapsing each to a single ":" and measuring
+    # the length delta; more than one means it is malformed.
+    local collapsed="${s//::/:}"
+    (((${#s} - ${#collapsed}) <= 1)) || return 1
     return 0
   fi
+
   return 1
 }
 
@@ -115,14 +167,9 @@ unban_ip() {
   IFS=', ' read -r -a jails <<< "${jails_csv}"
   for jail in "${jails[@]}"; do
     [[ -z "${jail}" ]] && continue
-    if [[ "${DRY_RUN:-0}" == "1" ]]; then
-      log "DRY_RUN: fail2ban-client set ${jail} unbanip ${ip}"
-    else
-      log "+ fail2ban-client set ${jail} unbanip ${ip}"
-      if ! fail2ban-client set "${jail}" unbanip "${ip}" > /dev/null 2>&1; then
-        log "  (not banned in ${jail})"
-      fi
-    fi
+    # run_ok keeps a single DRY_RUN path and tolerates the non-zero exit
+    # fail2ban-client returns when the IP was not banned in this jail.
+    run_ok fail2ban-client set "${jail}" unbanip "${ip}"
   done
 
   log "current bans:"
@@ -137,6 +184,8 @@ unlock_user() {
   local u="$1"
   require_cmd faillock
 
+  # set -e is intentionally disabled for this branch test.
+  # shellcheck disable=SC2310
   if ! id "${u}" > /dev/null 2>&1; then
     err "user not found: ${u}"
     exit 1
@@ -157,6 +206,7 @@ main() {
       usage
       exit 0
       ;;
+    *) ;;
   esac
 
   if [[ -z "${TARGET_USER:-}" && -z "${IP:-}" ]]; then
@@ -170,6 +220,8 @@ main() {
   fi
 
   if [[ -n "${IP:-}" ]]; then
+    # set -e is intentionally disabled for this branch test.
+    # shellcheck disable=SC2310
     if ! is_ip_literal "${IP}"; then
       err "IP does not look like an IPv4/IPv6 literal: ${IP}"
       exit 2
@@ -184,4 +236,8 @@ main() {
   fi
 }
 
-main "$@"
+# Only execute when run directly; sourcing (e.g. from the bats unit tests
+# that exercise is_ip_literal) must not trigger main.
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  main "$@"
+fi
