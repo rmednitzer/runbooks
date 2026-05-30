@@ -65,9 +65,13 @@ make_recording_bin() {
 # lines that start with "<name> " — otherwise the name on one line and the
 # argument on a different command's line would falsely match.
 called_with() {
-  local name="$1" needle="$2"
-  awk -v n="${name}" 'index($0, n " ") == 1' "${CALLS_LOG}" |
-    grep -qF -- "${needle}"
+  local name="$1" needle="$2" line
+  while IFS= read -r line; do
+    if [[ "${line}" == "${name} "* && "${line}" == *"${needle}"* ]]; then
+      return 0
+    fi
+  done < "${CALLS_LOG}"
+  return 1
 }
 
 # not_called <name>
