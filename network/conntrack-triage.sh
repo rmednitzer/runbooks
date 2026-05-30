@@ -24,8 +24,8 @@
 #   - Read access to /proc/sys/net/netfilter/* (root recommended; conntrack
 #     accounting must be enabled in the kernel — it is, on any box doing
 #     NAT/stateful filtering).
-#   - coreutils awk, sort, head; optional: sysctl, conntrack (conntrack-
-#     tools), dmesg.
+#   - coreutils awk, sort, head, mktemp; optional: sysctl, conntrack
+#     (conntrack-tools), dmesg.
 #   Targets bash >= 4 + GNU coreutils. If conntrack is not in use on this
 #   host (no nf_conntrack), the script says so and exits cleanly.
 #
@@ -44,7 +44,15 @@ log() { printf '[conntrack] %s\n' "$*"; }
 warn() { printf '[conntrack] WARN: %s\n' "$*" >&2; }
 err() { printf '[conntrack] ERR: %s\n' "$*" >&2; }
 
-# Uniform failure reporting. No temp files in this script.
+# The conntrack table is spooled to a temp file (see main) so the two
+# top-talker pipelines stream it instead of buffering the whole table in a
+# shell variable; remove it on any exit.
+TABLE_FILE=""
+cleanup() {
+  [[ -n "${TABLE_FILE}" && -f "${TABLE_FILE}" ]] && rm -f -- "${TABLE_FILE}"
+  return 0
+}
+trap 'cleanup' EXIT
 trap 'err "failed at line ${LINENO}"; exit 1' ERR
 
 usage() {
@@ -124,7 +132,7 @@ main() {
     exit 2
   fi
 
-  require_cmd awk sort head
+  require_cmd awk sort head mktemp
 
   if [[ "${EUID}" -ne 0 ]]; then
     warn "not running as root — table visibility may be partial"
@@ -170,16 +178,23 @@ main() {
   # Top talkers: parse the table for destination ports and source IPs. Both
   # conntrack -L and /proc/net/nf_conntrack expose dport=/src= tokens, so we
   # extract those tokens regardless of source.
-  local table
-  table="$(conntrack_table)"
+  #
+  # This runbook targets EXHAUSTED tables — hundreds of thousands to millions
+  # of rows. Spool the table ONCE to a temp file and stream that file through
+  # each pipeline (awk/sort read it line by line, sort spilling to disk as
+  # needed) instead of buffering the whole table in a shell variable, which
+  # on an exhausted box would balloon the operator shell by hundreds of MB.
+  # Spooling once also keeps both pipelines on a single point-in-time snapshot
+  # and avoids a second conntrack -L on an already-stressed subsystem.
+  TABLE_FILE="$(mktemp)"
+  conntrack_table > "${TABLE_FILE}"
 
   log ""
   log "--- top ${top_n} destination ports in the conntrack table ---"
-  if [[ -n "${table}" ]]; then
+  if [[ -s "${TABLE_FILE}" ]]; then
     # The FIRST dport= on each line is the original-direction destination.
     # shellcheck disable=SC2312
-    printf '%s\n' "${table}" |
-      awk '{ for (i = 1; i <= NF; i++) if ($i ~ /^dport=/) { print $i; break } }' |
+    awk '{ for (i = 1; i <= NF; i++) if ($i ~ /^dport=/) { print $i; break } }' "${TABLE_FILE}" |
       sort | uniq -c | sort -rn |
       head -n "${top_n}" | awk '{ printf "    %8d  %s\n", $1, $2 }' || true
   else
@@ -189,11 +204,10 @@ main() {
 
   log ""
   log "--- top ${top_n} source addresses in the conntrack table ---"
-  if [[ -n "${table}" ]]; then
+  if [[ -s "${TABLE_FILE}" ]]; then
     # The FIRST src= on each line is the original-direction source.
     # shellcheck disable=SC2312
-    printf '%s\n' "${table}" |
-      awk '{ for (i = 1; i <= NF; i++) if ($i ~ /^src=/) { print $i; break } }' |
+    awk '{ for (i = 1; i <= NF; i++) if ($i ~ /^src=/) { print $i; break } }' "${TABLE_FILE}" |
       sort | uniq -c | sort -rn |
       head -n "${top_n}" | awk '{ printf "    %8d  %s\n", $1, $2 }' || true
   fi
