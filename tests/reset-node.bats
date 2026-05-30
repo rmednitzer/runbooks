@@ -44,7 +44,7 @@ teardown() { common_teardown; }
 @test "reset: invalid WIPE_MODE exits 2" {
   run env NODES=10.0.0.9 WIPE_MODE=bogus DRY_RUN=1 bash "${REPO_ROOT}/${SCRIPT}"
   [ "${status}" -eq 2 ]
-  [[ "${output}" == *"WIPE_MODE must be one of"* ]]
+  [[ "${output}" == *"WIPE_MODE must be"* ]]
 }
 
 @test "reset: invalid GRACEFUL exits 2" {
@@ -83,7 +83,7 @@ teardown() { common_teardown; }
 }
 
 @test "reset: REBOOT=0 reflects in the reset flags" {
-  run env NODES=10.0.0.9 WIPE_MODE=ephemeral REBOOT=0 FORCE=1 \
+  run env NODES=10.0.0.9 REBOOT=0 FORCE=1 \
     bash "${REPO_ROOT}/${SCRIPT}"
   [ "${status}" -eq 0 ]
   called_with talosctl "--reboot=false"

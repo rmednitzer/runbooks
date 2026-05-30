@@ -160,14 +160,15 @@ verify_snapshot_checksum() {
     return 0
   fi
   log "verifying snapshot against ${sidecar}"
-  # sha256sum -c reads the recorded "<hash>  <path>" line. Run it from the
-  # snapshot's directory so a relative path in the sidecar resolves.
-  local dir base
-  dir="$(dirname -- "${snap}")"
-  base="$(basename -- "${sidecar}")"
-  # set -e intentionally disabled for this branch test.
-  # shellcheck disable=SC2310
-  if ! (cd "${dir}" && sha256sum -c --status "${base}"); then
+  # Compare the recorded hash to the file's hash directly. `sha256sum -c` of
+  # the sidecar would fail when the sidecar records a path that does not
+  # resolve from the current directory; the hash is all we need to confirm
+  # the snapshot has not bit-rotted.
+  local expected actual
+  expected="$(awk 'NR == 1 { print $1 }' "${sidecar}")"
+  # shellcheck disable=SC2312
+  actual="$(sha256sum -- "${snap}" | awk '{ print $1 }')"
+  if [[ -z "${expected}" || "${expected}" != "${actual}" ]]; then
     err "snapshot checksum FAILED — refusing to restore a corrupt snapshot"
     exit 1
   fi

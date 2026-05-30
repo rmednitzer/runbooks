@@ -25,20 +25,20 @@
 #   workflow and a DOUBLE confirmation (typed token + an explicit second
 #   y/N naming the exact node and wipe scope).
 #
-# Wipe scope (WIPE_MODE / SYSTEM_LABELS)
-#   `--wipe-mode` selects WHAT is wiped (talosctl values: auto, all, state,
-#   ephemeral; default auto):
-#     - ephemeral : wipe only EPHEMERAL (pod data, images, etcd data dir).
-#                   The node keeps its install + machine config. This is the
-#                   right scope for the "wipe etcd before recover" case.
-#     - all       : wipe the whole system disk. The node leaves the cluster
-#                   entirely and must be re-installed. DECOMMISSION scope.
-#     - state     : wipe STATE (machine config / secrets).
-#     - auto      : Talos decides based on context.
-#   Alternatively, `--system-labels-to-wipe` names exact partitions to wipe
-#   (e.g. EPHEMERAL). If SYSTEM_LABELS is set it is used INSTEAD of
-#   WIPE_MODE. The classic recover-prep is:
+# Wipe scope (WIPE_MODE / SYSTEM_LABELS) — two distinct talosctl knobs:
+#   --wipe-mode (WIPE_MODE) selects DISK granularity. talosctl accepts ONLY:
+#     all          wipe the whole system disk; the node leaves the cluster
+#                  and must be re-installed (DECOMMISSION scope).
+#     system-disk  wipe the system disk only.
+#     user-disks   wipe attached user disks only.
+#   --system-labels-to-wipe (SYSTEM_LABELS) selects PARTITIONS by label
+#     (e.g. EPHEMERAL = pod data/images/etcd data dir; STATE = machine
+#     config/secrets). EPHEMERAL/STATE are NOT --wipe-mode values.
+#   DEFAULT (neither var set): wipe ONLY the EPHEMERAL partition via
+#   --system-labels-to-wipe — the safe "wipe etcd before recover" scope.
+#   The classic recover-prep is:
 #     SYSTEM_LABELS=EPHEMERAL GRACEFUL=0 reset-node.sh
+#   SYSTEM_LABELS overrides WIPE_MODE when both are set.
 #
 # Graceful (GRACEFUL)
 #   --graceful (default true in talosctl) drains the node and leaves etcd
@@ -56,9 +56,10 @@
 #   TALOSCONFIG    Path to talosconfig (talosctl --talosconfig).
 #   ENDPOINTS      Endpoint addresses (talosctl --endpoints). Optional.
 #   CONTEXT        talosconfig context name. Optional.
-#   WIPE_MODE      --wipe-mode value: auto|all|state|ephemeral (default
-#                  ephemeral here — the safer scope; choose 'all' to fully
-#                  decommission). Ignored if SYSTEM_LABELS is set.
+#   WIPE_MODE      --wipe-mode value: all|system-disk|user-disks. Unset
+#                  (default) wipes ONLY the EPHEMERAL partition via
+#                  --system-labels-to-wipe — the safe recover-prep scope.
+#                  Ignored when SYSTEM_LABELS is set.
 #   SYSTEM_LABELS  Comma-separated partition labels for
 #                  --system-labels-to-wipe (e.g. EPHEMERAL). Overrides
 #                  WIPE_MODE when set.
@@ -103,9 +104,9 @@ Environment variables:
   TALOSCONFIG    Path to talosconfig (talosctl --talosconfig).
   ENDPOINTS      Endpoint addresses (talosctl --endpoints). Optional.
   CONTEXT        talosconfig context name. Optional.
-  WIPE_MODE      auto|all|state|ephemeral (default ephemeral — safer
-                 scope; use 'all' to decommission). Ignored if
-                 SYSTEM_LABELS is set.
+  WIPE_MODE      all|system-disk|user-disks. Unset = wipe only EPHEMERAL
+                 (safe default, via --system-labels-to-wipe). Ignored
+                 when SYSTEM_LABELS is set.
   SYSTEM_LABELS  Partition labels for --system-labels-to-wipe (e.g.
                  EPHEMERAL). Overrides WIPE_MODE when set.
   GRACEFUL       1 (default) drains + leaves etcd cleanly; 0 for an
@@ -212,17 +213,24 @@ main() {
   if [[ -n "${SYSTEM_LABELS:-}" ]]; then
     reset_args+=(--system-labels-to-wipe "${SYSTEM_LABELS}")
     scope_desc="partitions [${SYSTEM_LABELS}]"
-  else
-    local wipe_mode="${WIPE_MODE:-ephemeral}"
-    case "${wipe_mode}" in
-      auto | all | state | ephemeral) ;;
+  elif [[ -n "${WIPE_MODE:-}" ]]; then
+    # talosctl reset --wipe-mode accepts ONLY all|system-disk|user-disks.
+    # EPHEMERAL/STATE partitions are selected via --system-labels-to-wipe
+    # (set SYSTEM_LABELS), not --wipe-mode.
+    case "${WIPE_MODE}" in
+      all | system-disk | user-disks) ;;
       *)
-        err "WIPE_MODE must be one of auto|all|state|ephemeral (got: ${wipe_mode})"
+        err "WIPE_MODE must be all|system-disk|user-disks (got: ${WIPE_MODE}); to wipe only EPHEMERAL/STATE set SYSTEM_LABELS instead"
         exit 2
         ;;
     esac
-    reset_args+=(--wipe-mode "${wipe_mode}")
-    scope_desc="wipe-mode ${wipe_mode}"
+    reset_args+=(--wipe-mode "${WIPE_MODE}")
+    scope_desc="wipe-mode ${WIPE_MODE}"
+  else
+    # Safe default: wipe only the EPHEMERAL partition (recover-prep / soft
+    # reset) via --system-labels-to-wipe, not a full disk wipe-mode.
+    reset_args+=(--system-labels-to-wipe EPHEMERAL)
+    scope_desc="partitions [EPHEMERAL] (default)"
   fi
 
   log "node       : ${NODES}  (resetting ONE node)"

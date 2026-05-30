@@ -69,7 +69,7 @@ teardown() { common_teardown; }
   called_with talosctl "get members"
   called_with talosctl "health --server=false"
   called_with talosctl "etcd members"
-  called_with talosctl "services"
+  called_with talosctl "service"
 }
 
 @test "health: unhealthy cluster exits 1" {

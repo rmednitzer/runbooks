@@ -32,12 +32,11 @@
 #   This script validates the ref SHAPE (registry/repo + tag or @sha256
 #   digest) and WARNS when you pass a mutable tag instead of a digest.
 #
-# --preserve / --stage (PRESERVE / STAGE)
-#   --preserve keeps the EPHEMERAL partition (pod data, images) across the
-#   upgrade. Default Talos behaviour wipes EPHEMERAL; for most in-place
-#   upgrades you want PRESERVE=1. --stage writes the upgrade to disk and
-#   applies it on the NEXT reboot instead of immediately — useful when the
-#   node cannot cleanly drain right now. Both are opt-in here.
+# --stage (STAGE)
+#   `talosctl upgrade` has NO --preserve flag: Talos preserves the EPHEMERAL
+#   partition (pod data, images) across an upgrade by default. --stage writes
+#   the upgrade to disk and applies it on the NEXT reboot instead of
+#   immediately — useful when the node cannot cleanly drain right now.
 #
 # Requirements (bash >= 4 on GNU/Linux; see CLAUDE.md)
 #   - talosctl on PATH, valid talosconfig (default or TALOSCONFIG).
@@ -52,7 +51,6 @@
 #   TALOSCONFIG   Path to talosconfig (talosctl --talosconfig).
 #   ENDPOINTS     Endpoint addresses (talosctl --endpoints). Optional.
 #   CONTEXT       talosconfig context name. Optional.
-#   PRESERVE      If 1, pass --preserve (keep EPHEMERAL across the upgrade).
 #   STAGE         If 1, pass --stage (apply on next reboot, not now).
 #   SKIP_HEALTH   If 1, skip the pre-flight `talosctl health` gate (use
 #                 only when the cluster is known-degraded on purpose).
@@ -75,7 +73,7 @@ trap 'err "failed at line ${LINENO}"; exit 1' ERR
 usage() {
   cat << 'EOF'
 Usage: NODES=<node> IMAGE=<installer-ref> [TALOSCONFIG=...] [ENDPOINTS=...] \
-       [CONTEXT=...] [PRESERVE=1] [STAGE=1] [SKIP_HEALTH=1] [DRY_RUN=1] \
+       [CONTEXT=...] [STAGE=1] [SKIP_HEALTH=1] [DRY_RUN=1] \
        upgrade-node.sh
 
 Upgrade ONE Talos node to a target installer image via `talosctl upgrade`.
@@ -90,7 +88,6 @@ Environment variables:
   TALOSCONFIG   Path to talosconfig (talosctl --talosconfig).
   ENDPOINTS     Endpoint addresses (talosctl --endpoints). Optional.
   CONTEXT       talosconfig context name. Optional.
-  PRESERVE      If 1, pass --preserve (keep EPHEMERAL data).
   STAGE         If 1, pass --stage (apply on next reboot).
   SKIP_HEALTH   If 1, skip the pre-flight health gate.
   DRY_RUN       If 1, print the upgrade command and exit.
@@ -100,7 +97,7 @@ next. Examples:
   NODES=10.0.0.2 IMAGE=ghcr.io/siderolabs/installer:v1.9.5 DRY_RUN=1 \
     ./upgrade-node.sh
   NODES=10.0.0.2 IMAGE=ghcr.io/siderolabs/installer@sha256:abc... \
-    PRESERVE=1 ./upgrade-node.sh
+    STAGE=1 ./upgrade-node.sh
 EOF
 }
 
@@ -191,9 +188,9 @@ main() {
 
   # Assemble the upgrade flags.
   local -a upgrade_args=(upgrade --image "${IMAGE}")
-  if [[ "${PRESERVE:-0}" == "1" ]]; then
-    upgrade_args+=(--preserve)
-  fi
+  # `talosctl upgrade` has no --preserve flag: Talos preserves the EPHEMERAL
+  # partition (pod data, images) across an upgrade by default. Use --stage to
+  # apply on the next reboot instead of immediately.
   if [[ "${STAGE:-0}" == "1" ]]; then
     upgrade_args+=(--stage)
   fi
@@ -204,7 +201,6 @@ main() {
   log "node       : ${NODES}  (upgrading ONE node)"
   log "image      : ${IMAGE}"
   log "digest-pin : ${digest_label}"
-  log "preserve   : ${PRESERVE:-0}"
   log "stage      : ${STAGE:-0}"
   log "command    : talosctl ${TALOS_FLAGS[*]} ${upgrade_args[*]}"
 

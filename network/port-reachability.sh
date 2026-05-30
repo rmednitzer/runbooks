@@ -165,6 +165,11 @@ main() {
     ports+=("${p}")
   done
 
+  if ((${#ports[@]} == 0)); then
+    err "PORT contained no valid port numbers (got: '${port_spec}')"
+    exit 2
+  fi
+
   # Decide the probe method. auto prefers /dev/tcp (no dependency); falls
   # back to nc when this bash lacks net-redirections.
   local use=""

@@ -31,7 +31,7 @@
 #      already-running cluster without needing the original init node.
 #   4. talosctl etcd members / etcd status — etcd quorum view (control
 #      plane only; on worker-only targets this is skipped with a note).
-#   5. talosctl services — Talos service (apid, etcd, kubelet, …) states.
+#   5. talosctl service  — Talos service (apid, etcd, kubelet, …) states.
 #   6. recent kernel errors via `talosctl dmesg` (best-effort tail).
 #
 # Requirements (bash >= 4 on GNU/Linux; see CLAUDE.md)
@@ -206,7 +206,7 @@ main() {
   talos_section "etcd status" etcd status
 
   # 5. Talos service states (apid, etcd, kubelet, machined, …).
-  talos_section "services (talosctl services)" services
+  talos_section "service states (talosctl service)" service
 
   # 6. Recent kernel ring-buffer errors (best-effort). dmesg streams the
   #    whole buffer; we tail the last DMESG_TAIL lines. Skipped when 0.

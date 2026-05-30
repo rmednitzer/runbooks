@@ -192,7 +192,8 @@ main() {
     # The FIRST src= on each line is the original-direction source.
     # shellcheck disable=SC2312
     printf '%s\n' "${table}" |
-      grep -oE 'src=[0-9a-fA-F.:]+' | sort | uniq -c | sort -rn |
+      awk '{ for (i = 1; i <= NF; i++) if ($i ~ /^src=/) { print $i; break } }' |
+      sort | uniq -c | sort -rn |
       head -n "${top_n}" | awk '{ printf "    %8d  %s\n", $1, $2 }' || true
   fi
 

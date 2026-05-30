@@ -73,7 +73,8 @@ teardown() { common_teardown; }
   snap="$(echo "${TEST_TMP}"/bk/etcd-10.0.0.2-*.snapshot)"
   [ -s "${snap}" ]
   [ -f "${snap}.sha256" ]
-  run sha256sum -c --status "${snap}.sha256"
+  # The sidecar records a basename, so verify from the snapshot's directory.
+  run bash -c "cd \"$(dirname "${snap}")\" && sha256sum -c --status \"$(basename "${snap}").sha256\""
   [ "${status}" -eq 0 ]
 }
 

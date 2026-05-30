@@ -74,6 +74,12 @@ called_with() {
   return 1
 }
 
+# not_called_with <name> <substring>
+# Succeeds if NO recorded invocation of <name> contains <substring>.
+not_called_with() {
+  ! called_with "$@"
+}
+
 # not_called <name>
 # Succeeds if <name> never recorded a call.
 not_called() {

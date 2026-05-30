@@ -146,7 +146,7 @@ main() {
   if [[ "${DRY_RUN:-0}" == "1" ]]; then
     log "DRY_RUN: mkdir -p ${backup_dir}"
     log "DRY_RUN: talosctl ${TALOS_FLAGS[*]} etcd snapshot ${snapshot}"
-    log "DRY_RUN: sha256sum ${snapshot} > ${snapshot}.sha256"
+    log "DRY_RUN: write a basename sidecar ${snapshot}.sha256 next to the snapshot"
     log "DRY_RUN: no snapshot taken, nothing written"
     exit 0
   fi
@@ -178,7 +178,10 @@ main() {
 
   # Record a checksum next to the snapshot so a later restore can verify
   # the file has not bit-rotted in transit/storage.
-  sha256sum -- "${snapshot}" > "${snapshot}.sha256"
+  # Record the checksum with the snapshot's BASENAME (not the full path) so
+  # the sidecar is a standard, relocatable `sha256sum -c`-able file.
+  (cd -- "${backup_dir}" &&
+    sha256sum -- "$(basename -- "${snapshot}")" > "$(basename -- "${snapshot}").sha256")
 
   local size
   size="$(stat -c '%s' -- "${snapshot}")"

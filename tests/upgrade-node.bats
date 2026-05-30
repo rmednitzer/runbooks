@@ -5,7 +5,7 @@
 # enforced; the image-ref SHAPE validator (accepts tag and @sha256 digest,
 # rejects junk, warns on a mutable tag); DRY_RUN never calls talosctl; the
 # pre-flight `talosctl health` gate blocks an upgrade onto an unhealthy
-# cluster (and SKIP_HEALTH overrides); PRESERVE/STAGE flags are forwarded.
+# cluster (and SKIP_HEALTH overrides); --stage is forwarded (no --preserve).
 # A fake `talosctl` records calls and can fail `health` on demand.
 
 load helpers/common
@@ -100,13 +100,14 @@ teardown() { common_teardown; }
   ! called_with talosctl "upgrade"
 }
 
-@test "upgrade: healthy pre-flight proceeds and forwards PRESERVE/STAGE" {
-  run env NODES=10.0.0.2 IMAGE="${GOOD_IMAGE}" HEALTH_RC=0 PRESERVE=1 STAGE=1 \
+@test "upgrade: healthy pre-flight proceeds and forwards --stage" {
+  run env NODES=10.0.0.2 IMAGE="${GOOD_IMAGE}" HEALTH_RC=0 STAGE=1 \
     bash "${REPO_ROOT}/${SCRIPT}"
   [ "${status}" -eq 0 ]
   called_with talosctl "upgrade"
-  called_with talosctl "--preserve"
   called_with talosctl "--stage"
+  # talosctl upgrade has no --preserve flag; ensure we never emit it.
+  not_called_with talosctl "--preserve"
 }
 
 @test "upgrade: SKIP_HEALTH=1 bypasses the gate and still upgrades" {
