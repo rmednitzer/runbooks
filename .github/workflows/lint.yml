@@ -28,3 +28,24 @@ jobs:
       # by .pre-commit-config.yaml — the single source of truth for tool
       # versions and arguments.
       - uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd  # v3.0.1
+
+  bats:
+    name: bats (script behaviour tests)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6
+
+      # Install bats-core from a pinned upstream tag rather than a
+      # third-party marketplace action, so the toolchain is reproducible
+      # without trusting an external action SHA. v1.13.0 matches what the
+      # suite was authored and run against locally.
+      - name: Install bats-core
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch v1.13.0 \
+            https://github.com/bats-core/bats-core /tmp/bats-core
+          sudo /tmp/bats-core/install.sh /usr/local
+
+      - name: Run bats suite
+        run: bats tests/

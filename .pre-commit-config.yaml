@@ -28,7 +28,12 @@ repos:
     rev: v0.11.0.1
     hooks:
       - id: shellcheck
-        args: [--severity=warning]
+        # -x follows `source`d files. --enable=all surfaces the optional
+        # info-level checks (SC2310 set-e-in-conditionals, SC2312 masked
+        # returns, SC2249 missing default case) so the "shellcheck-clean"
+        # claim is honest. Deliberate set-e-disabling-in-if sites carry a
+        # targeted `# shellcheck disable=SC2310` annotation in-script.
+        args: [-x, --enable=all]
 
   - repo: https://github.com/scop/pre-commit-shfmt
     rev: v3.13.1-1
