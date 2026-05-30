@@ -187,17 +187,20 @@ parse_aide_db_paths() {
       defines+=("${key}=${val}")
       continue
     fi
+    # aide.conf(5): when a database directive appears more than once, AIDE
+    # uses the FIRST occurrence. Keep the first and ignore later duplicates
+    # (the previous last-wins logic could promote the wrong DB file).
     case "${line}" in
       database_in=* | database=*)
-        in_raw="${line#*=}"
+        [[ -z "${in_raw}" ]] && in_raw="${line#*=}"
         ;;
       database_out=* | database_new=*)
-        out_raw="${line#*=}"
+        [[ -z "${out_raw}" ]] && out_raw="${line#*=}"
         ;;
       *) ;;
     esac
   done < "${conf}"
-  # database_in takes precedence over the legacy `database`; same for out.
+  # in_raw/out_raw hold the first-seen input/output database directive.
   local in_path out_path
   in_path="$(resolve_db_url "${in_raw}" "${defines[@]+"${defines[@]}"}")"
   out_path="$(resolve_db_url "${out_raw}" "${defines[@]+"${defines[@]}"}")"

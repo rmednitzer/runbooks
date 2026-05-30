@@ -60,10 +60,14 @@ make_recording_bin() {
 }
 
 # called_with <name> <substring>
-# Succeeds if CALLS_LOG has a line for <name> containing <substring>.
+# Succeeds if a recorded invocation OF <name> contains <substring>. Each
+# fake binary records "<name> <args>", so restrict the substring search to
+# lines that start with "<name> " — otherwise the name on one line and the
+# argument on a different command's line would falsely match.
 called_with() {
   local name="$1" needle="$2"
-  grep -qF -- "${name} " "${CALLS_LOG}" && grep -qF -- "${needle}" "${CALLS_LOG}"
+  awk -v n="${name}" 'index($0, n " ") == 1' "${CALLS_LOG}" \
+    | grep -qF -- "${needle}"
 }
 
 # not_called <name>

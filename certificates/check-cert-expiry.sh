@@ -224,4 +224,7 @@ main() {
   log "OK"
 }
 
-main "$@"
+# Only execute when run directly; sourcing (e.g. from bats) must not run main.
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  main "$@"
+fi

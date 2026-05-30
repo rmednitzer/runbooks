@@ -181,7 +181,7 @@ main() {
       if is_int "${pct}" && ((pct >= threshold)); then
         mounts+=("${mp}")
       fi
-    done < <(df -P --local --output=pcent,target \
+    done < <(df --local --output=pcent,target \
       -x tmpfs -x devtmpfs -x overlay -x squashfs -x ramfs \
       -x proc -x sysfs -x cgroup -x cgroup2 -x devpts -x mqueue \
       -x efivarfs -x autofs -x debugfs -x tracefs -x fuse.portal \
