@@ -11,6 +11,9 @@
 /recovery/                  @rmednitzer
 /certificates/              @rmednitzer
 /logs/                      @rmednitzer
+/network/                   @rmednitzer
+# Talos cluster ops: etcd-restore.sh / reset-node.sh can destroy a cluster.
+/talos/                     @rmednitzer
 
 # CI and security policy.
 /.github/workflows/         @rmednitzer

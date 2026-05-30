@@ -74,9 +74,77 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `storage/disk-usage-triage.sh` runs its `du` walk under `ionice -c3
   nice -n19` when those tools are present, to avoid worsening a
   struggling host.
+- **Ubuntu 26.04 readiness.** The catalogue now explicitly targets Ubuntu
+  24.04 **and** 26.04 LTS. 26.04 ships `uutils`/`rust-coreutils` as the
+  DEFAULT provider for `df`/`du`/`date`/`sort`/`head`/`tail`/`numfmt`
+  (only `cp`/`mv`/`rm` stay GNU); uutils implements the GNU flags these
+  scripts use, but has known `numfmt --from=iec` discrepancies. No code
+  change was needed — `logs/journal-vacuum.sh` already treats `numfmt` as
+  optional and degrades safely, and `certificates/check-cert-expiry.sh`
+  already feature-probes `date -d`. `CLAUDE.md`'s platform-assumptions
+  section documents the 26.04 caveat, the always-present `gnu-coreutils`
+  package, and the `coreutils-from-gnu` escape hatch, plus the systemd
+  255→259 / cgroup-v1-removal facts (none of which affect these scripts).
+- The bats suite grew from 56 to 134 tests with the new `talos/` and
+  `network/` scripts (one `.bats` per script; same fake-binary discipline,
+  and DRY_RUN tests assert the real `talosctl`/`nc` is never invoked). The
+  `justfile` `scripts` list now includes all fifteen scripts so
+  `just lint`/`fmt`/`check` stay in sync with CI.
 
 ### Added
 
+- A new `talos/` category: operator runbooks for **Talos Linux**, which is
+  API-only (no SSH/shell/PAM/package-manager on the node — everything is
+  `talosctl` over mTLS using a talosconfig). Each script `command -v
+  talosctl`, honours `TALOSCONFIG` / `NODES` / `ENDPOINTS` / `CONTEXT`
+  (mapping to the matching `talosctl` flags), documents the no-SSH model
+  for a 03:00 operator, and supports `DRY_RUN` on anything that writes.
+  - `talos/talos-health-check.sh` — read-only cluster triage: `talosctl
+    version` / `get members` / `health --server=false` / `etcd members` +
+    `etcd status` / `services` / recent `dmesg`. Exit status follows the
+    `health` verdict; a failing telemetry section never aborts the page.
+  - `talos/etcd-snapshot.sh` — consistent etcd backup via `talosctl etcd
+    snapshot <path>` to a timestamped file, verified non-empty, with a
+    SHA-256 sidecar and a printed restore pointer (safe/read-only).
+  - `talos/etcd-restore.sh` — guided disaster recovery via `talosctl
+    bootstrap --recover-from=<snapshot>`. The most destructive script:
+    prominent DANGER header, snapshot checksum verification, a typed
+    `RECOVER` confirmation, a split-brain guard (refuses >1 node), and an
+    optional `--recover-skip-hash-check` for raw `talosctl cp` copies.
+  - `talos/upgrade-node.sh` — `talosctl upgrade --nodes <n> --image <ref>`
+    one node at a time, with a pre-flight `talosctl health` gate, image-ref
+    shape validation (warns on a mutable tag vs a `@sha256` digest), and
+    `--preserve` / `--stage` pass-through.
+  - `talos/kubeconfig-rotate.sh` — (re)fetch the admin kubeconfig with
+    `talosctl kubeconfig`, backing up any file it overwrites; `MERGE=0`
+    maps to `--force`.
+  - `talos/reset-node.sh` — `talosctl reset` to wipe a node to maintenance
+    mode. EXTREME-danger header, `WIPE` token **and** a second y/N
+    confirmation, single-node guard, and `WIPE_MODE` / `SYSTEM_LABELS` /
+    `GRACEFUL` / `REBOOT` controls (e.g. `SYSTEM_LABELS=EPHEMERAL
+    GRACEFUL=0` for the wipe-etcd-before-recover case).
+  All six are validated against the current Talos `talosctl` reference and
+  covered by bats using PATH-shimmed fake `talosctl` (usage / exit codes /
+  `DRY_RUN`-never-calls-real-talosctl / dependency-missing). `README.md`,
+  `CLAUDE.md` (catalogue + the no-SSH paradigm + the talosctl/TALOSCONFIG
+  convention), and `.github/CODEOWNERS` updated.
+- The `network/` category (previously create-on-first-use) now exists, with
+  three read-only triage scripts following the catalogue conventions and
+  bats coverage:
+  - `network/dns-propagation-check.sh` — query one record across many
+    resolvers (a public set UNION `/etc/resolv.conf`) with `dig`, compare
+    the sorted answer sets, and flag any resolver that diverges from the
+    majority (propagation lag / stale cache / split-horizon). Exits
+    non-zero on divergence.
+  - `network/port-reachability.sh` — bounded TCP-handshake probe to one or
+    more `host:port` from THIS host ("is the firewall blocking X?"), using
+    bash `/dev/tcp` by default and falling back to `nc`, each wrapped in
+    coreutils `timeout`. Read-only (handshake only, no payload).
+  - `network/conntrack-triage.sh` — netfilter conntrack count vs max + the
+    `%` used, any `nf_conntrack: table full` drops in the kernel log, and
+    the top talkers (by dest port / source IP) from `conntrack -L` or
+    `/proc/net/nf_conntrack`. Exits non-zero at/above `WARN_PCT` or on
+    logged drops; exits cleanly when conntrack is not in use.
 - A [bats](https://github.com/bats-core/bats-core) test harness under
   `tests/` (56 tests): per-script `-h`/`--help`, missing/invalid env,
   and `DRY_RUN` coverage using PATH-shimmed fake binaries (asserting the

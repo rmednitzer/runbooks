@@ -3,12 +3,34 @@
 Ad-hoc operator shell scripts for fleet tasks that don't fit
 configuration management or infrastructure-as-code — disk and filesystem
 work, certificate renewal triggers, log triage, manual rollback,
-breakglass.
+breakglass, ad-hoc network triage, and Talos Linux cluster operations.
 
 Companion repositories:
 [`infra`](https://github.com/rmednitzer/infra) (OpenTofu provisioning),
 [`automation`](https://github.com/rmednitzer/automation) (Ansible
 hardening + SRE toolchain installer).
+
+## Categories
+
+| Directory | Scope | Key dependency |
+|-----------|-------|----------------|
+| `storage/` | LVM, filesystem, disk triage | LVM2, GNU coreutils |
+| `certificates/` | TLS / PKI spot-checks | openssl |
+| `logs/` | systemd journal vacuums | journalctl |
+| `recovery/` | fail2ban / faillock / AIDE breakglass | per-script |
+| `network/` | DNS propagation, port reachability, conntrack | dig / nc / conntrack |
+| `talos/` | Talos Linux cluster ops (health, etcd backup/restore, upgrade, reset) | **talosctl** |
+
+**Talos has no SSH.** Talos Linux is an API-only, immutable OS — no SSH,
+no shell, no PAM, no on-node package manager. Everything is done over the
+Talos gRPC API (mTLS) with the **`talosctl`** client and a **talosconfig**.
+The `talos/` scripts honour `TALOSCONFIG` (and `NODES` / `ENDPOINTS` /
+`CONTEXT`) and run on an operator workstation, not on the nodes. The
+destructive ones (`etcd-restore.sh`, `reset-node.sh`) are `DRY_RUN`-first
+with explicit typed confirmations — read each header before running.
+
+The scripts target **Ubuntu 24.04 *and* 26.04 LTS**; see
+[`CLAUDE.md`](./CLAUDE.md) for the 26.04 `uutils`-coreutils note.
 
 ## Placement
 
