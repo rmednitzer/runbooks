@@ -17,8 +17,11 @@ indent_size = unset
 [*.{yml,yaml,json,toml}]
 indent_size = 2
 
+# Shell indentation is enforced by shfmt (-i 2). editorconfig-checker has no
+# heredoc awareness and over-flags column-aligned usage-text continuations
+# inside `cat <<EOF` usage blocks, so indent_size is deferred to shfmt here.
 [*.sh]
-indent_size = 2
+indent_size = unset
 
 [Makefile]
 indent_style = tab
