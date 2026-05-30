@@ -73,7 +73,7 @@ teardown() { common_teardown; }
 @test "cert: wraps openssl in timeout and passes NO -connect_timeout (C1)" {
   # Recording timeout: logs its args (which include the openssl command),
   # then runs a stub openssl that emits a PEM, so the pipeline proceeds.
-  cat > "${FAKE_BIN}/timeout" <<EOF
+  cat > "${FAKE_BIN}/timeout" << EOF
 #!/usr/bin/env bash
 printf 'timeout %s\n' "\$*" >> "${CALLS_LOG}"
 # drop the leading duration arg, exec the rest (our fake openssl)
@@ -87,7 +87,7 @@ EOF
   # PEM`). Emit a valid self-signed PEM for x509 to parse.
   local pem="${TEST_TMP}/leaf.pem"
   _make_self_signed_pem "${pem}"
-  cat > "${FAKE_BIN}/openssl" <<EOF
+  cat > "${FAKE_BIN}/openssl" << EOF
 #!/usr/bin/env bash
 case "\$1" in
   s_client) cat "${pem}" ;;

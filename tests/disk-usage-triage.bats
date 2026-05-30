@@ -62,7 +62,7 @@ teardown() { common_teardown; }
 }
 
 @test "triage: MOUNT that is not a mountpoint exits 2" {
-  make_fake_bin findmnt 'exit 1'   # findmnt --target fails -> not a mountpoint
+  make_fake_bin findmnt 'exit 1' # findmnt --target fails -> not a mountpoint
   run env MOUNT="/no/such/mount" bash "${REPO_ROOT}/${SCRIPT}"
   [ "${status}" -eq 2 ]
   [[ "${output}" == *"not a mountpoint"* ]]

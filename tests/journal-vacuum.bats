@@ -58,7 +58,7 @@ esac'
   run env DRY_RUN=1 KEEP_DAYS=7 bash "${REPO_ROOT}/${SCRIPT}"
   [ "${status}" -eq 0 ]
   [[ "${output}" == *"DRY_RUN: journalctl --vacuum-time=7d"* ]]
-  not_called journalctl   # no --vacuum-* / --rotate actually executed
+  not_called journalctl # no --vacuum-* / --rotate actually executed
 }
 
 @test "journal(M3): warns when vacuum frees ~nothing and suggests ROTATE" {

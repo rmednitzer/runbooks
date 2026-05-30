@@ -34,10 +34,14 @@ teardown() { common_teardown; }
 # --- H5 regression: is_ip_literal (authoritative python3 path) ---
 
 @test "unlock(is_ip_literal): accepts ordinary IPv4/IPv6" {
-  call_func "${SCRIPT}" is_ip_literal "192.0.2.10"; [ "${status}" -eq 0 ]
-  call_func "${SCRIPT}" is_ip_literal "8.1.1.1"; [ "${status}" -eq 0 ]
-  call_func "${SCRIPT}" is_ip_literal "2001:db8::1"; [ "${status}" -eq 0 ]
-  call_func "${SCRIPT}" is_ip_literal "::1"; [ "${status}" -eq 0 ]
+  call_func "${SCRIPT}" is_ip_literal "192.0.2.10"
+  [ "${status}" -eq 0 ]
+  call_func "${SCRIPT}" is_ip_literal "8.1.1.1"
+  [ "${status}" -eq 0 ]
+  call_func "${SCRIPT}" is_ip_literal "2001:db8::1"
+  [ "${status}" -eq 0 ]
+  call_func "${SCRIPT}" is_ip_literal "::1"
+  [ "${status}" -eq 0 ]
 }
 
 @test "unlock(is_ip_literal): rejects zero-padded octet 08.1.1.1 (H5.1 octal)" {
@@ -62,9 +66,12 @@ teardown() { common_teardown; }
 }
 
 @test "unlock(is_ip_literal): rejects hostnames, partials, and empties" {
-  call_func "${SCRIPT}" is_ip_literal "not-an-ip"; [ "${status}" -ne 0 ]
-  call_func "${SCRIPT}" is_ip_literal ""; [ "${status}" -ne 0 ]
-  call_func "${SCRIPT}" is_ip_literal "1.2.3"; [ "${status}" -ne 0 ]
+  call_func "${SCRIPT}" is_ip_literal "not-an-ip"
+  [ "${status}" -ne 0 ]
+  call_func "${SCRIPT}" is_ip_literal ""
+  [ "${status}" -ne 0 ]
+  call_func "${SCRIPT}" is_ip_literal "1.2.3"
+  [ "${status}" -ne 0 ]
 }
 
 @test "unlock(is_ip_literal): regex fallback (no python3) still gets H5 cases right" {
@@ -82,10 +89,14 @@ teardown() { common_teardown; }
       set +e; source "$1"; trap - ERR; is_ip_literal "$2"
     ' _ "${REPO_ROOT}/${SCRIPT}" "$1"
   }
-  _fb "08.1.1.1"; [ "${status}" -ne 0 ]
-  _fb "::::"; [ "${status}" -ne 0 ]
-  _fb "192.0.2.10"; [ "${status}" -eq 0 ]
-  _fb "2001:db8::1"; [ "${status}" -eq 0 ]
+  _fb "08.1.1.1"
+  [ "${status}" -ne 0 ]
+  _fb "::::"
+  [ "${status}" -ne 0 ]
+  _fb "192.0.2.10"
+  [ "${status}" -eq 0 ]
+  _fb "2001:db8::1"
+  [ "${status}" -eq 0 ]
 }
 
 # --- M4: unified DRY_RUN path through run_ok ---

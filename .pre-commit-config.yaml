@@ -34,6 +34,12 @@ repos:
         # claim is honest. Deliberate set-e-disabling-in-if sites carry a
         # targeted `# shellcheck disable=SC2310` annotation in-script.
         args: [-x, --enable=all]
+        # .bats files are validated by running them (bats tests/), not by
+        # shellcheck: under --enable=all shellcheck floods them with
+        # false positives (SC2154 on bats' injected $status/$output, SC2292
+        # on the conventional [ ] idiom, SC2314 on bats `!`). The sourced
+        # helper tests/helpers/common.bash (.bash) is still linted.
+        exclude: \.bats$
 
   - repo: https://github.com/scop/pre-commit-shfmt
     rev: v3.13.1-1
