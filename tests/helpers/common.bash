@@ -66,8 +66,8 @@ make_recording_bin() {
 # argument on a different command's line would falsely match.
 called_with() {
   local name="$1" needle="$2"
-  awk -v n="${name}" 'index($0, n " ") == 1' "${CALLS_LOG}" \
-    | grep -qF -- "${needle}"
+  awk -v n="${name}" 'index($0, n " ") == 1' "${CALLS_LOG}" |
+    grep -qF -- "${needle}"
 }
 
 # not_called <name>
