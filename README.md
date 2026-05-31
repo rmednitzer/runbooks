@@ -20,6 +20,7 @@ hardening + SRE toolchain installer).
 | `recovery/` | fail2ban / faillock / AIDE breakglass | per-script |
 | `network/` | DNS propagation, port reachability, conntrack | dig / nc / conntrack |
 | `talos/` | Talos Linux cluster ops (health, etcd backup/restore, upgrade, reset) | **talosctl** |
+| `secops/` | AI-assisted security-signal triage via local inference | python3 / journalctl |
 
 **Talos has no SSH.** Talos Linux is an API-only, immutable OS — no SSH,
 no shell, no PAM, no on-node package manager. Everything is done over the
