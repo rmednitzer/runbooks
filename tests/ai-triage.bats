@@ -115,3 +115,12 @@ MSG'
   [[ "${output}" == *"=== Gathered signals ==="* ]]
   [[ "${output}" == *"local inference unavailable"* ]]
 }
+
+@test "ai-triage: a failing collector is surfaced, not silently '(none)'" {
+  # ausearch present but denied: the section must show the failure, not "(none)".
+  make_fake_bin ausearch 'echo "Error opening audit log: Permission denied" >&2; exit 1'
+  run env SOURCE=host DRY_RUN=1 bash "${REPO_ROOT}/${SCRIPT}"
+  [ "${status}" -eq 0 ]
+  [[ "${output}" == *"collector exited"* ]]
+  [[ "${output}" == *"Permission denied"* ]]
+}

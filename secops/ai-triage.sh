@@ -91,20 +91,42 @@ add_section() {
   } >> "${WORK}/signals.txt"
 }
 
-# Run a best-effort, read-only collector; never abort the script on its failure.
+# Run a best-effort, read-only collector. Emits its (capped) stdout; if the
+# command exits non-zero, appends a VISIBLE note with the reason — so a
+# permission error is surfaced to the operator and the model, never silently
+# rendered as "(none)" (which would invite a false-negative triage).
 collect() {
-  local out=""
-  out="$("$@" 2> /dev/null | tail -n "${MAX_LINES}")" || true
+  local out rc err_txt
+  set +e
+  out="$("$@" 2> "${WORK}/collect.err" | tail -n "${MAX_LINES}")"
+  rc=$?
+  set -e
   printf '%s' "${out}"
+  if [[ "${rc}" -ne 0 ]]; then
+    err_txt="$(head -n 2 "${WORK}/collect.err" 2> /dev/null | tr '\n' ' ')"
+    printf '\n[collector exited %s%s]' "${rc}" "${err_txt:+: ${err_txt}}"
+  fi
 }
 
 gather_host() {
-  local ts="recent" audit_out bans ufw_out journal_out
-  ts="$(date -d "${SINCE}" '+%x %T' 2> /dev/null)" || ts="recent"
+  local audit_out bans ufw_out journal_out ts_date ts_time mtypes when
+  mtypes="USER_LOGIN,USER_AUTH,USER_ACCT,ADD_USER,DEL_USER,USER_CHAUTHTOK,ADD_GROUP,ANOM_ABEND,AVC"
+  # ausearch -ts takes SEPARATE [date] [time] arguments; a single
+  # "MM/DD/YYYY HH:MM:SS" string is parsed as time-only (the date is dropped).
+  # Derive both and pass them separately; fall back to the "recent" keyword if
+  # `date -d` can't parse SINCE (e.g. a uutils-date quirk on 26.04).
+  ts_date="$(date -d "${SINCE}" '+%m/%d/%Y' 2> /dev/null)" || ts_date=""
+  ts_time="$(date -d "${SINCE}" '+%H:%M:%S' 2> /dev/null)" || ts_time=""
 
   if command -v ausearch > /dev/null 2>&1; then
-    audit_out="$(collect ausearch -i -ts "${ts}" -m USER_LOGIN,USER_AUTH,USER_ACCT,ADD_USER,DEL_USER,USER_CHAUTHTOK,ADD_GROUP,ANOM_ABEND,AVC)"
-    add_section "auditd auth/account events (since ${ts})" "${audit_out}"
+    if [[ -n "${ts_date}" && -n "${ts_time}" ]]; then
+      when="${ts_date} ${ts_time}"
+      audit_out="$(collect ausearch -i -ts "${ts_date}" "${ts_time}" -m "${mtypes}")"
+    else
+      when="recent"
+      audit_out="$(collect ausearch -i -ts recent -m "${mtypes}")"
+    fi
+    add_section "auditd auth/account events (since ${when})" "${audit_out}"
   else
     add_section "auditd auth/account events" "(ausearch not installed)"
   fi
@@ -227,6 +249,13 @@ main() {
 
   WORK="$(mktemp -d)"
   : > "${WORK}/signals.txt"
+
+  # Audit/journal reads need privilege; flag partial data up front (and in the
+  # prompt) so a quiet result from an unprivileged run isn't read as "all clear".
+  if [[ "${EUID}" -ne 0 ]]; then
+    warn "running as non-root (uid ${EUID}); auditd/journal/ufw reads may be incomplete."
+    printf 'NOTE: gathered as non-root (uid %s) — some sources may be incomplete; treat a quiet result with caution.\n\n' "${EUID}" >> "${WORK}/signals.txt"
+  fi
 
   case "${SOURCE}" in
     siem) gather_siem ;;
