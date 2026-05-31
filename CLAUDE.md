@@ -38,6 +38,8 @@ runbooks/
 ├── talos/          # Talos Linux operator runbooks via talosctl
 │                   #   (talos-health-check, etcd-snapshot, etcd-restore,
 │                   #    upgrade-node, kubeconfig-rotate, reset-node)
+├── secops/         # AI-assisted security triage via LOCAL inference
+│                   #   (ai-triage)
 └── tests/          # bats suite + shared helpers (one .bats per script)
 ```
 

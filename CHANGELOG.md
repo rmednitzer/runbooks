@@ -5,6 +5,20 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `secops/ai-triage.sh` — AI-assisted security-signal triage via **local
+  inference**. Gathers recent host security signals (auditd auth/account
+  events, fail2ban bans, ufw/kernel drops, warning-and-above journal lines)
+  and asks a local Ollama endpoint to triage them into an assessment +
+  severity, correlated events, benign-vs-suspicious reasoning, and operator
+  next steps. Read-only; the signals stay on-prem (the `automation` `ollama`
+  role / POL-004 sovereignty stance), with `DRY_RUN=1` to inspect exactly what
+  would be sent before contacting any endpoint. Pluggable `SOURCE` (host
+  default; `siem` is a documented stub). Degrades gracefully when the endpoint
+  is unset/unreachable (still prints the raw signals). Adds the new `secops/`
+  category, a 10-case bats suite, and justfile/README/CLAUDE entries.
+
 ### Fixed
 
 - `certificates/check-cert-expiry.sh` was **non-functional**: it passed
