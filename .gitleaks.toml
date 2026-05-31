@@ -1,0 +1,29 @@
+# gitleaks configuration for runbooks.
+#
+# The "secret scan (gitleaks)" CI job (.github/workflows/lint.yml) runs
+# `gitleaks dir` over the full working tree and auto-loads this file. It
+# extends gitleaks' built-in ruleset (so every default rule still applies) and
+# allowlists only specific, documented FALSE POSITIVES — keeping the gate green
+# without weakening real secret detection.
+#
+# Add an entry here ONLY for a confirmed false positive, scoped as narrowly as
+# possible (path AND line, condition = "AND"), with a description saying why it
+# is not a secret. Never allowlist a whole path or a broad pattern.
+title = "runbooks gitleaks config"
+
+[extend]
+useDefault = true
+
+# NOTE on scoping: in the global allowlist, `paths` behaves as an OR filter
+# (it exempts the WHOLE matching file even with condition = "AND"), which would
+# blind the scanner to a real secret elsewhere in that file. So we scope by an
+# anchored LINE regex instead — it exempts only the one exact source line,
+# anywhere it appears, and a secret appended to that line still trips.
+[[allowlists]]
+description = """
+Bash local-variable declaration whose identifier contains 'key' (majority_key)
+sitting next to 'majority_count=0' trips the generic-api-key heuristic. These
+are code identifiers in a read-only DNS triage script, not a credential.
+"""
+regexTarget = "line"
+regexes = ['''^\s*local majority_key="" majority_count=0 k\s*$''']

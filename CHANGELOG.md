@@ -20,12 +20,20 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   category, a 10-case bats suite, and justfile/README/CLAUDE entries.
 - **Server-side secret scanning in CI** — a dedicated `secret scan (gitleaks)`
   job in `.github/workflows/lint.yml` runs `gitleaks dir` over the full working
-  tree on every push/PR (pinned `v8.30.1`, matching the pre-commit hook and the
-  companion repos). The `gitleaks` pre-commit hook scans only STAGED changes
+  tree on every push/PR. The image is pinned by immutable digest (gitleaks
+  `v8.30.1`, the same version as the pre-commit hook and the companion repos),
+  matching the SHA-pinning posture of the actions in that workflow. The
+  `gitleaks` pre-commit hook scans only STAGED changes
   (`pass_filenames: false`; `gitleaks git --pre-commit --staged`), so it is a
   no-op in a clean CI checkout — the earlier note that it was "mirrored by CI"
   was inaccurate. This job is the real server-side enforcement, and matches the
   mechanism added to the `infra` repo.
+- `.gitleaks.toml` — extends gitleaks' default ruleset (`useDefault`) and
+  allowlists one confirmed false positive: the `generic-api-key` heuristic fires
+  on a `local` declaration in `dns-propagation-check.sh` whose variable name
+  contains "key" (`majority_key`) — a bash identifier, not a credential. Scoped
+  to that exact, anchored source line, so a secret on any other line (or
+  appended to that line) still trips the scan.
 
 ### Fixed
 

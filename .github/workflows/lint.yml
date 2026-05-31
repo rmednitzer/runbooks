@@ -71,9 +71,12 @@ jobs:
       # no-op in a clean CI checkout (pass_filenames is false; `gitleaks git
       # --pre-commit --staged` finds nothing to scan). This job is what
       # actually enforces secret detection server-side: a full working-tree
-      # scan via `gitleaks dir`. Pinned to the same gitleaks version as the
-      # pre-commit hook and the companion repos (v8.30.1).
+      # scan via `gitleaks dir`. Pinned by immutable image DIGEST (matching the
+      # SHA-pinning posture of the actions above); the digest is gitleaks
+      # v8.30.1 — the same version as the pre-commit hook and the companion
+      # repos. Bump the digest and the version comment together.
       - name: Run gitleaks (full working-tree scan)
         run: |
           docker run --rm -v "${{ github.workspace }}:/repo" \
-            ghcr.io/gitleaks/gitleaks:v8.30.1 dir /repo --redact --no-banner
+            ghcr.io/gitleaks/gitleaks@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f \
+            dir /repo --redact --no-banner # gitleaks v8.30.1
