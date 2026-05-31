@@ -86,14 +86,81 @@ teardown() { common_teardown; }
   [ ! -e "${TEST_TMP}/dest.key" ]
 }
 
-@test "rotate: already-current destination is a no-op (exit 0)" {
+@test "rotate: already-current destination (cert AND key match) is a no-op" {
   _gen_pair "${TEST_TMP}/a.crt" "${TEST_TMP}/a.key"
-  cp "${TEST_TMP}/a.crt" "${TEST_TMP}/dest.crt" # destination already holds it
+  cp "${TEST_TMP}/a.crt" "${TEST_TMP}/dest.crt" # destination already holds both
+  cp "${TEST_TMP}/a.key" "${TEST_TMP}/dest.key"
   run env CERT_SRC="${TEST_TMP}/a.crt" KEY_SRC="${TEST_TMP}/a.key" \
     CERT_DEST="${TEST_TMP}/dest.crt" KEY_DEST="${TEST_TMP}/dest.key" \
     SERVICE=nginx bash "${REPO_ROOT}/${SCRIPT}"
   [ "${status}" -eq 0 ]
   [[ "${output}" == *"already current"* ]]
+}
+
+@test "rotate: same cert but a STALE key at the destination is NOT skipped" {
+  # Codex P2: a leaf-only idempotency check would wrongly report "current" when
+  # the installed key no longer matches. dest holds certA but the WRONG key.
+  [[ "${EUID}" -eq 0 ]] || skip "needs root to write the destination and chown"
+  _gen_pair "${TEST_TMP}/a.crt" "${TEST_TMP}/a.key" a
+  _gen_pair "${TEST_TMP}/b.crt" "${TEST_TMP}/b.key" b
+  cp "${TEST_TMP}/a.crt" "${TEST_TMP}/dest.crt"
+  cp "${TEST_TMP}/b.key" "${TEST_TMP}/dest.key" # stale/mismatched key
+  make_recording_bin systemctl 0
+  run env CERT_SRC="${TEST_TMP}/a.crt" KEY_SRC="${TEST_TMP}/a.key" \
+    CERT_DEST="${TEST_TMP}/dest.crt" KEY_DEST="${TEST_TMP}/dest.key" \
+    SERVICE=nginx bash "${REPO_ROOT}/${SCRIPT}"
+  [ "${status}" -eq 0 ]
+  [[ "${output}" != *"already current"* ]]
+  # the key was repaired to the matching one
+  cmp -s "${TEST_TMP}/dest.key" "${TEST_TMP}/a.key"
+}
+
+@test "rotate: a cert PEM containing a private key is refused (exit 1)" {
+  # Codex P1: a combined cert+key PEM as CERT_SRC must not be written to the
+  # world-readable cert path.
+  _gen_pair "${TEST_TMP}/a.crt" "${TEST_TMP}/a.key"
+  cat "${TEST_TMP}/a.crt" "${TEST_TMP}/a.key" > "${TEST_TMP}/combined.pem"
+  run env CERT_SRC="${TEST_TMP}/combined.pem" KEY_SRC="${TEST_TMP}/a.key" \
+    CERT_DEST="${TEST_TMP}/dest.crt" KEY_DEST="${TEST_TMP}/dest.key" \
+    SERVICE=nginx bash "${REPO_ROOT}/${SCRIPT}"
+  [ "${status}" -eq 1 ]
+  [[ "${output}" == *"contains a PRIVATE KEY"* ]]
+}
+
+@test "rotate: identical CERT_DEST and KEY_DEST is rejected (exit 2)" {
+  _gen_pair "${TEST_TMP}/a.crt" "${TEST_TMP}/a.key"
+  run env CERT_SRC="${TEST_TMP}/a.crt" KEY_SRC="${TEST_TMP}/a.key" \
+    CERT_DEST="${TEST_TMP}/same.pem" KEY_DEST="${TEST_TMP}/same.pem" \
+    SERVICE=nginx bash "${REPO_ROOT}/${SCRIPT}"
+  [ "${status}" -eq 2 ]
+  [[ "${output}" == *"must be different"* ]]
+}
+
+@test "rotate: a directory destination is rejected (exit 2)" {
+  _gen_pair "${TEST_TMP}/a.crt" "${TEST_TMP}/a.key"
+  mkdir -p "${TEST_TMP}/adir"
+  run env CERT_SRC="${TEST_TMP}/a.crt" KEY_SRC="${TEST_TMP}/a.key" \
+    CERT_DEST="${TEST_TMP}/adir" KEY_DEST="${TEST_TMP}/dest.key" \
+    SERVICE=nginx bash "${REPO_ROOT}/${SCRIPT}"
+  [ "${status}" -eq 2 ]
+  [[ "${output}" == *"is a directory"* ]]
+}
+
+@test "rotate: a failed FIRST-TIME install rolls back by removing the new files" {
+  # Codex P2: with no prior pair to restore, rollback must delete the new files
+  # so the prior absence is restored, not left as failed material.
+  [[ "${EUID}" -eq 0 ]] || skip "needs root to write the destination and chown"
+  _gen_pair "${TEST_TMP}/new.crt" "${TEST_TMP}/new.key" new
+  # destination directory is empty — no existing cert/key
+  make_fake_bin systemctl 'exit 1' # reload fails
+  run env CERT_SRC="${TEST_TMP}/new.crt" KEY_SRC="${TEST_TMP}/new.key" \
+    CERT_DEST="${TEST_TMP}/fresh.crt" KEY_DEST="${TEST_TMP}/fresh.key" \
+    SERVICE=nginx bash "${REPO_ROOT}/${SCRIPT}"
+  [ "${status}" -eq 1 ]
+  [[ "${output}" == *"rolling back"* ]]
+  # prior absence restored — neither file remains
+  [ ! -e "${TEST_TMP}/fresh.crt" ]
+  [ ! -e "${TEST_TMP}/fresh.key" ]
 }
 
 @test "rotate: installs atomically with a 0600 key and reloads" {

@@ -164,8 +164,24 @@ main() {
     err "set only one of SERVICE or RELOAD_CMD, not both"
     exit 2
   fi
+  # Same path for both would install the key, then clobber it with the cert.
+  if [[ "${cert_dest}" == "${key_dest}" ]]; then
+    err "CERT_DEST and KEY_DEST must be different paths (got ${cert_dest})"
+    exit 2
+  fi
+  # A directory destination would make `mv tmp DIR` move the temp file INSIDE
+  # the directory (GNU mv) rather than replace the intended path — a silent
+  # "success" that installs nothing. Refuse a directory up front.
+  if [[ -d "${cert_dest}" ]]; then
+    err "CERT_DEST is a directory, not a file: ${cert_dest}"
+    exit 2
+  fi
+  if [[ -d "${key_dest}" ]]; then
+    err "KEY_DEST is a directory, not a file: ${key_dest}"
+    exit 2
+  fi
 
-  require_cmd openssl date mktemp install mv cp
+  require_cmd openssl date mktemp install mv cp cmp
   if [[ ! -r "${cert_src}" ]]; then
     err "CERT_SRC not readable: ${cert_src}"
     exit 2
@@ -177,6 +193,21 @@ main() {
   if [[ -n "${chain_src}" && ! -r "${chain_src}" ]]; then
     err "CHAIN_SRC not readable: ${chain_src}"
     exit 2
+  fi
+
+  # A cert/chain PEM must NOT carry a private key. CERT_DEST is written
+  # world-readable (CERT_MODE default 0644), and `openssl x509` silently ignores
+  # trailing key blocks, so a combined cert+key PEM passed as CERT_SRC/CHAIN_SRC
+  # would publish the private key. Refuse it explicitly. (The key goes in via
+  # KEY_SRC, installed at 0600.)
+  local pk_re='-----BEGIN ([A-Z0-9]+ )?PRIVATE KEY-----'
+  if grep -qE -- "${pk_re}" "${cert_src}"; then
+    err "CERT_SRC contains a PRIVATE KEY block — refusing (it would be world-readable at ${cert_dest}); pass the key via KEY_SRC"
+    exit 1
+  fi
+  if [[ -n "${chain_src}" ]] && grep -qE -- "${pk_re}" "${chain_src}"; then
+    err "CHAIN_SRC contains a PRIVATE KEY block — refusing"
+    exit 1
   fi
 
   # --- Validate the new pair BEFORE touching the live files -----------------
@@ -237,13 +268,23 @@ main() {
     log "chain      : verifies against ${ca_bundle}"
   fi
 
-  # Idempotency: if the destination already holds this exact cert, do nothing.
-  if [[ -f "${cert_dest}" ]]; then
-    local new_fp cur_fp
-    new_fp="$(cert_fingerprint "${cert_src}")"
-    cur_fp="$(cert_fingerprint "${cert_dest}")"
-    if [[ -n "${new_fp}" && "${new_fp}" == "${cur_fp}" ]]; then
-      log "already current: ${cert_dest} already holds this certificate (sha256 ${new_fp:0:16}…)"
+  # Idempotency: skip only when the installed cert (leaf + any chain) AND the
+  # installed key already byte-match what we would write. A leaf-only check
+  # would wrongly report "current" when the key is missing/stale or the chain
+  # changed under an unchanged leaf, leaving broken material unrepaired.
+  if [[ -f "${cert_dest}" && -f "${key_dest}" ]]; then
+    local cert_current=1 key_current=1
+    if [[ -n "${chain_src}" ]]; then
+      # SC2312: cat's exit status is irrelevant here — cmp's comparison result
+      # (captured via ||) is what decides currency.
+      # shellcheck disable=SC2312
+      cmp -s <(cat -- "${cert_src}" "${chain_src}") "${cert_dest}" || cert_current=0
+    else
+      cmp -s -- "${cert_src}" "${cert_dest}" || cert_current=0
+    fi
+    cmp -s -- "${key_src}" "${key_dest}" || key_current=0
+    if ((cert_current == 1 && key_current == 1)); then
+      log "already current: ${cert_dest} and ${key_dest} already hold this exact cert/key${chain_src:+ (and chain)}"
       exit 0
     fi
   fi
@@ -305,9 +346,16 @@ main() {
     warn "rolling back to the previous certificate/key"
     if [[ -n "${backup_cert}" ]]; then
       mv -f -- "${backup_cert}" "${cert_dest}" 2> /dev/null || true
+    else
+      # No previous cert existed (first-time install) — remove the new one so
+      # we restore the prior ABSENCE rather than leave failed material that a
+      # later manual reload/restart would pick up.
+      rm -f -- "${cert_dest}" 2> /dev/null || true
     fi
     if [[ -n "${backup_key}" ]]; then
       mv -f -- "${backup_key}" "${key_dest}" 2> /dev/null || true
+    else
+      rm -f -- "${key_dest}" 2> /dev/null || true
     fi
     if [[ -n "${service}" ]]; then
       systemctl reload "${service}" 2> /dev/null || systemctl restart "${service}" 2> /dev/null || true
