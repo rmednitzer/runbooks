@@ -123,8 +123,19 @@ gather_host() {
       when="${ts_date} ${ts_time}"
       audit_out="$(collect ausearch -i -ts "${ts_date}" "${ts_time}" -m "${mtypes}")"
     else
-      when="recent"
+      # date -d couldn't parse SINCE (e.g. a uutils-date quirk on 26.04). We
+      # fall back to ausearch's own "recent" keyword — but that is only ~the
+      # last 10 minutes, almost always NARROWER than the requested SINCE. Warn
+      # loudly AND record the caveat in the signals, otherwise a quiet auditd
+      # section reads as "nothing happened over the window" when that window was
+      # never actually searched (a silent false-negative for the operator and
+      # the model alike).
+      when="recent (~10m; SINCE unparsed)"
+      warn "could not parse SINCE='${SINCE}' as a date; falling back to ausearch '-ts recent'"
+      warn "ausearch 'recent' is only ~the last 10 minutes — NARROWER than SINCE='${SINCE}'"
       audit_out="$(collect ausearch -i -ts recent -m "${mtypes}")"
+      audit_out="NOTE: SINCE='${SINCE}' was not parseable; this auditd window is ausearch 'recent' (~10 min), NOT the requested window — treat a quiet result with caution.
+${audit_out}"
     fi
     add_section "auditd auth/account events (since ${when})" "${audit_out}"
   else

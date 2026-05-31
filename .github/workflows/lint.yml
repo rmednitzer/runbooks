@@ -59,3 +59,21 @@ jobs:
       # work the same under root.
       - name: Run bats suite
         run: sudo --preserve-env=PATH bats tests/
+
+  secret-scan:
+    name: secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6
+
+      # The gitleaks pre-commit hook scans only STAGED changes, so it is a
+      # no-op in a clean CI checkout (pass_filenames is false; `gitleaks git
+      # --pre-commit --staged` finds nothing to scan). This job is what
+      # actually enforces secret detection server-side: a full working-tree
+      # scan via `gitleaks dir`. Pinned to the same gitleaks version as the
+      # pre-commit hook and the companion repos (v8.30.1).
+      - name: Run gitleaks (full working-tree scan)
+        run: |
+          docker run --rm -v "${{ github.workspace }}:/repo" \
+            ghcr.io/gitleaks/gitleaks:v8.30.1 dir /repo --redact --no-banner

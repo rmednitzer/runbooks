@@ -135,6 +135,13 @@ main() {
     err "THRESHOLD, TOP_N, MIN_FILE_MIB must be non-negative integers"
     exit 2
   fi
+  # TOP_N feeds `head`/`tail -n "${top_n}"`; 0 silently yields an EMPTY report
+  # (head/tail -n 0 print nothing), so the triage runs but reports nothing.
+  # Reject it explicitly rather than emit a useless all-blank page.
+  if ((top_n < 1)); then
+    err "TOP_N must be >= 1 (got ${top_n}); 0 would print an empty report"
+    exit 2
+  fi
   if ((threshold > 100)); then
     err "THRESHOLD must be 0..100 (got ${threshold})"
     exit 2

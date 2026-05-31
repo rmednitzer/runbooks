@@ -37,8 +37,9 @@
 #   TRIES       dig retries per resolver (default 1).
 #
 # Exit codes
-#   0  all resolvers agree (no divergence)
-#   1  at least one resolver diverged, OR a runtime error
+#   0  all resolvers agree on a NON-EMPTY answer (no divergence)
+#   1  at least one resolver diverged, OR every resolver returned no answer
+#      (NXDOMAIN/NODATA/SERVFAIL/timeout), OR a runtime error
 #   2  invalid argument (missing NAME, bad TIMEOUT, …)
 
 set -euo pipefail
@@ -46,6 +47,11 @@ set -euo pipefail
 log() { printf '[dns-prop] %s\n' "$*"; }
 warn() { printf '[dns-prop] WARN: %s\n' "$*" >&2; }
 err() { printf '[dns-prop] ERR: %s\n' "$*" >&2; }
+
+# Sentinel recorded for a resolver that returned nothing (NXDOMAIN, NODATA,
+# SERVFAIL, or a timeout). Kept as a named constant so the "did EVERY resolver
+# fail?" guard in main() cannot drift from what query_resolver writes.
+readonly NO_ANSWER='<NO-ANSWER>'
 
 # Temp dir holding one answer file per resolver; cleaned up on any exit.
 WORK_DIR=""
@@ -112,7 +118,7 @@ query_resolver() {
   # Strip blank lines, sort for set-comparison stability.
   out="$(printf '%s\n' "${out}" | awk 'NF' | sort || true)"
   if [[ -z "${out}" ]]; then
-    printf '<NO-ANSWER>\n'
+    printf '%s\n' "${NO_ANSWER}"
   else
     printf '%s\n' "${out}"
   fi
@@ -256,6 +262,20 @@ main() {
     err "likely propagation lag, a stale cache, or split-horizon DNS"
     exit 1
   fi
+
+  # Unanimous agreement on an EMPTY answer is NOT an all-clear: every resolver
+  # returned NXDOMAIN/NODATA/SERVFAIL/timeout. Without this guard the majority-
+  # vote logic above treats "nobody resolved it" as agreement and exits 0 — a
+  # false OK for a record that in fact resolves NOWHERE (a typo'd name, a record
+  # deleted everywhere, or every resolver unreachable).
+  if [[ "${majority_key}" == "${NO_ANSWER};" ]]; then
+    log ""
+    err "no resolver returned an answer for '${name}' ${rtype}"
+    err "every resolver agrees on an EMPTY result (NXDOMAIN/NODATA/SERVFAIL/timeout):"
+    err "the record resolves nowhere, or the name/type is wrong"
+    exit 1
+  fi
+
   log ""
   log "OK: all resolvers agree"
 }

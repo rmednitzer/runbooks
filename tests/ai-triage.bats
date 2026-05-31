@@ -124,3 +124,16 @@ MSG'
   [[ "${output}" == *"collector exited"* ]]
   [[ "${output}" == *"Permission denied"* ]]
 }
+
+@test "ai-triage: unparseable SINCE warns the ausearch window narrowed to 'recent'" {
+  # A `date` that cannot parse SINCE forces the ausearch '-ts recent' fallback
+  # (~10 min). The narrowing must be warned to the operator AND embedded in the
+  # signals so a quiet result is not mistaken for a quiet full window.
+  make_fake_bin date 'exit 1'
+  make_fake_bin ausearch 'exit 0'
+  run env SOURCE=host DRY_RUN=1 SINCE="6 hours ago" bash "${REPO_ROOT}/${SCRIPT}"
+  [ "${status}" -eq 0 ]
+  [[ "${output}" == *"falling back to ausearch '-ts recent'"* ]]
+  [[ "${output}" == *"NARROWER than SINCE"* ]]
+  [[ "${output}" == *"this auditd window is ausearch 'recent'"* ]]
+}
