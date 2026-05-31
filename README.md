@@ -15,7 +15,7 @@ hardening + SRE toolchain installer).
 | Directory | Scope | Key dependency |
 |-----------|-------|----------------|
 | `storage/` | LVM, filesystem, disk triage | LVM2, GNU coreutils |
-| `certificates/` | TLS / PKI spot-checks | openssl |
+| `certificates/` | TLS / PKI: expiry spot-checks, certificate rotation | openssl |
 | `logs/` | systemd journal vacuums | journalctl |
 | `recovery/` | fail2ban / faillock / AIDE breakglass | per-script |
 | `network/` | DNS propagation, port reachability, conntrack | dig / nc / conntrack |

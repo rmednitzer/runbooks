@@ -30,7 +30,7 @@ that genuinely belongs in it arrives; avoid catch-all bins (`misc/`,
 ```
 runbooks/
 ├── storage/        # LVM, filesystem, disk  (extend-lvm, disk-usage-triage)
-├── certificates/   # TLS / PKI helpers      (check-cert-expiry)
+├── certificates/   # TLS / PKI helpers      (check-cert-expiry, rotate-cert)
 ├── logs/           # Journal vacuums        (journal-vacuum)
 ├── recovery/       # Rollback, breakglass   (unlock-account, aide-acknowledge)
 ├── network/        # Ad-hoc DNS / firewall / routing

@@ -7,6 +7,22 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `certificates/rotate-cert.sh` — safely replace a TLS certificate + private
+  key on a host. **Validates before touching anything**: the new cert and key
+  must parse and their public keys must MATCH (RSA/EC/Ed25519, via
+  `openssl pkey -pubout` vs the cert's `-pubkey`), and the cert must be within
+  its validity window (refuses an already-expired cert; warns on not-yet-valid).
+  Then backs up the current pair (timestamped), installs atomically
+  (temp-in-dest-dir + rename) with correct ownership/mode (key `0600`),
+  optionally appends a chain (`CHAIN_SRC`) and verifies against a CA bundle
+  (`CA_BUNDLE`), runs an optional pre-reload config test (`RELOAD_TEST_CMD`),
+  reloads via `SERVICE`/`RELOAD_CMD`, and **rolls back automatically** if the
+  reload fails. Idempotent (a destination already holding the cert is a no-op);
+  `DRY_RUN=1` prints the plan and changes nothing; needs root for the install
+  path. Optional `VERIFY_ENDPOINT` confirms the new cert is actually being
+  served. Adds a 10-case bats suite (real-openssl pairs; only `systemctl`
+  shimmed) and justfile/README/CLAUDE entries.
+
 - `secops/ai-triage.sh` — AI-assisted security-signal triage via **local
   inference**. Gathers recent host security signals (auditd auth/account
   events, fail2ban bans, ufw/kernel drops, warning-and-above journal lines)
