@@ -18,6 +18,22 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   default; `siem` is a documented stub). Degrades gracefully when the endpoint
   is unset/unreachable (still prints the raw signals). Adds the new `secops/`
   category, a 10-case bats suite, and justfile/README/CLAUDE entries.
+- **Server-side secret scanning in CI** — a dedicated `secret scan (gitleaks)`
+  job in `.github/workflows/lint.yml` runs `gitleaks dir` over the full working
+  tree on every push/PR. The image is pinned by immutable digest (gitleaks
+  `v8.30.1`, the same version as the pre-commit hook and the companion repos),
+  matching the SHA-pinning posture of the actions in that workflow. The
+  `gitleaks` pre-commit hook scans only STAGED changes
+  (`pass_filenames: false`; `gitleaks git --pre-commit --staged`), so it is a
+  no-op in a clean CI checkout — the earlier note that it was "mirrored by CI"
+  was inaccurate. This job is the real server-side enforcement, and matches the
+  mechanism added to the `infra` repo.
+- `.gitleaks.toml` — extends gitleaks' default ruleset (`useDefault`) and
+  allowlists one confirmed false positive: the `generic-api-key` heuristic fires
+  on a `local` declaration in `dns-propagation-check.sh` whose variable name
+  contains "key" (`majority_key`) — a bash identifier, not a credential. Scoped
+  to that exact, anchored source line, so a secret on any other line (or
+  appended to that line) still trips the scan.
 
 ### Fixed
 
@@ -71,6 +87,23 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   paths: the unban is routed through the `run` family (new `run_ok`
   tolerates the non-zero exit fail2ban returns when an IP is not banned),
   so there is a single DRY_RUN mechanism per script.
+- `network/dns-propagation-check.sh` no longer reports a false "OK: all
+  resolvers agree" (exit 0) when EVERY resolver returns an empty answer
+  (NXDOMAIN/NODATA/SERVFAIL/timeout). The majority-vote logic treated a
+  unanimous *non*-answer as agreement; it now detects the all-empty case and
+  exits 1 with "no resolver returned an answer", since the record in fact
+  resolves nowhere. The `<NO-ANSWER>` sentinel is now a named constant so the
+  guard cannot drift from the collector. New bats case covers it.
+- `storage/disk-usage-triage.sh` now rejects `TOP_N=0` (exit 2). It passed
+  the non-negative-integer check but fed `head`/`tail -n 0`, which print
+  nothing — so the triage ran yet reported no directories or files (a silent
+  empty page). `TOP_N` must now be ≥ 1. New bats case covers it.
+- `secops/ai-triage.sh` now warns — to the operator and inside the gathered
+  signals — when `date -d "${SINCE}"` cannot be parsed and the auditd query
+  falls back to ausearch's `-ts recent` keyword (~the last 10 minutes). The
+  fallback silently narrowed a wide `SINCE` window, so a quiet auditd section
+  could be misread as "nothing happened over the window" when that window was
+  never searched. New bats case covers it.
 
 ### Changed
 
@@ -179,7 +212,7 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Trademarks); it is now byte-identical to the companion repos' license.
 
 - CI hardening for secret-scan coverage and supply-chain integrity:
-  add `gitleaks` to the pre-commit hook set (mirrored by CI) for
+  add `gitleaks` to the pre-commit hook set for
   general secret scanning beyond the PEM-only `detect-private-key`;
   pin every GitHub Actions reference in `.github/workflows/lint.yml`
   to a full 40-char commit SHA, per GitHub's security-hardening

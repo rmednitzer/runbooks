@@ -61,6 +61,14 @@ teardown() { common_teardown; }
   [ "${status}" -eq 2 ]
 }
 
+@test "triage: TOP_N=0 exits 2 (would otherwise print an empty report)" {
+  # 0 passes the is_int check but head/tail -n 0 print nothing, so the report
+  # would run yet show no directories/files. Must be rejected explicitly.
+  run env TOP_N=0 bash "${REPO_ROOT}/${SCRIPT}"
+  [ "${status}" -eq 2 ]
+  [[ "${output}" == *"TOP_N must be >= 1"* ]]
+}
+
 @test "triage: MOUNT that is not a mountpoint exits 2" {
   make_fake_bin findmnt 'exit 1' # findmnt --target fails -> not a mountpoint
   run env MOUNT="/no/such/mount" bash "${REPO_ROOT}/${SCRIPT}"

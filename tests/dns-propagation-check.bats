@@ -80,6 +80,18 @@ teardown() { common_teardown; }
   [[ "${output}" == *"DIVERGE"* ]]
 }
 
+@test "dns: every resolver returns NO answer -> exit 1, not a false OK" {
+  # Fake dig prints nothing for every resolver, so each answer set is the
+  # <NO-ANSWER> sentinel. They "agree" — but agreeing on an empty result must
+  # NOT report "all resolvers agree" / exit 0 (the record resolves nowhere).
+  make_fake_bin dig 'exit 0'
+  run env NAME=nx.example.invalid RESOLVERS="1.1.1.1 8.8.8.8 9.9.9.9" \
+    bash "${REPO_ROOT}/${SCRIPT}"
+  [ "${status}" -eq 1 ]
+  [[ "${output}" == *"no resolver returned an answer"* ]]
+  [[ "${output}" != *"OK: all resolvers agree"* ]]
+}
+
 @test "dns: passes NAME and RTYPE positionally" {
   run env -u NAME -u RTYPE RESOLVERS="1.1.1.1" \
     bash "${REPO_ROOT}/${SCRIPT}" example.com A
