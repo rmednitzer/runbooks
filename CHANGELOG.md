@@ -17,11 +17,13 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   optionally appends a chain (`CHAIN_SRC`) and verifies against a CA bundle
   (`CA_BUNDLE`), runs an optional pre-reload config test (`RELOAD_TEST_CMD`),
   reloads via `SERVICE`/`RELOAD_CMD`, and **rolls back automatically** if the
-  reload fails. Idempotent (a destination already holding the cert is a no-op);
-  `DRY_RUN=1` prints the plan and changes nothing; needs root for the install
-  path. Optional `VERIFY_ENDPOINT` confirms the new cert is actually being
-  served. Adds a 10-case bats suite (real-openssl pairs; only `systemctl`
-  shimmed) and justfile/README/CLAUDE entries.
+  reload fails. Idempotent (a destination already holding the same cert and key
+  is a no-op); refuses unsafe inputs (a cert/chain PEM that embeds a private
+  key, a directory destination, or identical `CERT_DEST`/`KEY_DEST`); `DRY_RUN=1`
+  prints the plan and changes nothing; needs root for the install path. Optional
+  `VERIFY_ENDPOINT` confirms the new cert is actually being served. Adds a
+  15-case bats suite (real-openssl pairs; only `systemctl` shimmed) and
+  justfile/README/CLAUDE entries.
 
 - `secops/ai-triage.sh` — AI-assisted security-signal triage via **local
   inference**. Gathers recent host security signals (auditd auth/account
@@ -33,7 +35,7 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   would be sent before contacting any endpoint. Pluggable `SOURCE` (host
   default; `siem` is a documented stub). Degrades gracefully when the endpoint
   is unset/unreachable (still prints the raw signals). Adds the new `secops/`
-  category, a 10-case bats suite, and justfile/README/CLAUDE entries.
+  category, a 12-case bats suite, and justfile/README/CLAUDE entries.
 - **Server-side secret scanning in CI** — a dedicated `secret scan (gitleaks)`
   job in `.github/workflows/lint.yml` runs `gitleaks dir` over the full working
   tree on every push/PR. The image is pinned by immutable digest (gitleaks

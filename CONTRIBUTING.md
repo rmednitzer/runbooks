@@ -13,7 +13,7 @@ workflow only.
 |--------|-----|
 | `feature/` | New scripts |
 | `fix/` | Corrections to existing scripts |
-| `docs/` | README / CLAUDE.md / category README changes |
+| `docs/` | README / CLAUDE.md / CHANGELOG / governance docs |
 | `chore/` | CI / tooling / lint updates |
 
 ## Local loop
