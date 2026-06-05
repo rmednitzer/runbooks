@@ -79,7 +79,7 @@ bats suite. PRs cannot merge with failing CI.
 | [`CODE_OF_CONDUCT.md`](./CODE_OF_CONDUCT.md) | Contributor Covenant 2.1 |
 | [`.github/SECURITY.md`](./.github/SECURITY.md) | Vulnerability reporting |
 | [`.github/CODEOWNERS`](./.github/CODEOWNERS) | Automatic reviewer assignment |
-| [`.github/dependabot.yml`](./.github/dependabot.yml) | Weekly GitHub Actions update PRs |
+| [`renovate.json5`](./renovate.json5) | Renovate dependency-update config |
 | [`.github/ISSUE_TEMPLATE/`](./.github/ISSUE_TEMPLATE/) | Bug / feature / documentation forms |
 | [`.github/PULL_REQUEST_TEMPLATE.md`](./.github/PULL_REQUEST_TEMPLATE.md) | PR checklist |
 | [`LICENSE`](./LICENSE) / [`NOTICE`](./NOTICE) | Apache 2.0 |
