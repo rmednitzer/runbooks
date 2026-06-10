@@ -9,10 +9,12 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - CI `lint.yml`: replaced the abandoned `pre-commit/action@v3.0.1`
   marketplace wrapper (last upstream release 2024-02; flagged on the
-  Renovate dependency dashboard) with a direct
-  `pip install pre-commit` + `pre-commit run --all-files
-  --show-diff-on-failure` invocation — behaviour-identical, and consistent
-  with the bats job's prefer-upstream-over-marketplace posture.
+  Renovate dependency dashboard) with the equivalent explicit steps:
+  `python -m pip install pre-commit`, an `actions/cache` entry for the
+  `~/.cache/pre-commit` hook environments (same cache-key shape the
+  wrapper used), and `pre-commit run --all-files --show-diff-on-failure
+  --color=always` — consistent with the bats job's
+  prefer-upstream-over-marketplace posture.
 
 ### Added
 
