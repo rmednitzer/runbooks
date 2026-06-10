@@ -26,8 +26,16 @@ jobs:
 
       # All shellcheck / shfmt / EditorConfig / hygiene checks are driven
       # by .pre-commit-config.yaml — the single source of truth for tool
-      # versions and arguments.
-      - uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd  # v3.0.1
+      # versions and arguments. pre-commit is invoked directly rather than
+      # via the pre-commit/action marketplace wrapper: that action is
+      # abandoned upstream (last release 2024-02; flagged by Renovate), and
+      # all it did was `pip install pre-commit` + `pre-commit run` — dropping
+      # it matches the prefer-upstream posture of the bats job below.
+      - name: Install pre-commit
+        run: python -m pip install pre-commit
+
+      - name: Run pre-commit (all files)
+        run: pre-commit run --all-files --show-diff-on-failure --color=always
 
   bats:
     name: bats (script behaviour tests)
