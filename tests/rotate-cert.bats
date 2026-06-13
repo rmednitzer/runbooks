@@ -80,6 +80,15 @@ teardown() { common_teardown; }
   [[ "${output}" == *"expose the private key to 'other'"* ]]
 }
 
+@test "rotate: other-executable KEY_MODE (0601) is refused exits 2" {
+  _gen_pair "${TEST_TMP}/c.crt" "${TEST_TMP}/c.key"
+  run env CERT_SRC="${TEST_TMP}/c.crt" KEY_SRC="${TEST_TMP}/c.key" \
+    CERT_DEST="${TEST_TMP}/d.crt" KEY_DEST="${TEST_TMP}/d.key" \
+    KEY_MODE=0601 bash "${REPO_ROOT}/${SCRIPT}"
+  [ "${status}" -eq 2 ]
+  [[ "${output}" == *"expose the private key to 'other'"* ]]
+}
+
 @test "rotate: mismatched cert/key is refused (exit 1)" {
   # certA belongs to keyA; pass keyB instead -> public keys differ -> refuse.
   _gen_pair "${TEST_TMP}/a.crt" "${TEST_TMP}/a.key" a
