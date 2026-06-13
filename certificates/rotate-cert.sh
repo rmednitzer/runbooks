@@ -181,6 +181,23 @@ main() {
     exit 2
   fi
 
+  # Validate the install modes are octal, and refuse a private key that would
+  # be accessible to "other": a typo like KEY_MODE=0644 would otherwise install
+  # the private key world-readable. 0600/0640/0400 (incl. a group like
+  # ssl-cert) stay allowed; only other-r/w bits on the key are refused.
+  if ! [[ "${cert_mode}" =~ ^[0-7]{3,4}$ ]]; then
+    err "CERT_MODE must be an octal file mode like 0644 (got: ${cert_mode})"
+    exit 2
+  fi
+  if ! [[ "${key_mode}" =~ ^[0-7]{3,4}$ ]]; then
+    err "KEY_MODE must be an octal file mode like 0600 (got: ${key_mode})"
+    exit 2
+  fi
+  if (((8#${key_mode} & 0006) != 0)); then
+    err "KEY_MODE would expose the private key to 'other' (got: ${key_mode}); use 0600, 0640, or 0400"
+    exit 2
+  fi
+
   require_cmd openssl date mktemp install mv cp cmp
   if [[ ! -r "${cert_src}" ]]; then
     err "CERT_SRC not readable: ${cert_src}"
