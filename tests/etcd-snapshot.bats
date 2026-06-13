@@ -49,6 +49,12 @@ teardown() { common_teardown; }
   [[ "${output}" == *"SINGLE control-plane node"* ]]
 }
 
+@test "snapshot: space-separated NODES exits 2" {
+  run env NODES="10.0.0.2 10.0.0.3" bash "${REPO_ROOT}/${SCRIPT}"
+  [ "${status}" -eq 2 ]
+  [[ "${output}" == *"SINGLE control-plane node"* ]]
+}
+
 @test "snapshot: DRY_RUN prints the planned command and never calls talosctl" {
   run env NODES=10.0.0.2 BACKUP_DIR="${TEST_TMP}/bk" DRY_RUN=1 \
     bash "${REPO_ROOT}/${SCRIPT}"

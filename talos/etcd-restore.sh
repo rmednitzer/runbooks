@@ -192,8 +192,11 @@ main() {
     err "NODES is required: the SINGLE control-plane node to bootstrap"
     exit 2
   fi
-  if [[ "${NODES}" == *,* ]]; then
-    err "NODES must be a SINGLE node — bootstrapping >1 node splits brain (got: ${NODES})"
+  # Reject a comma- OR whitespace-separated list: the guard's intent is exactly
+  # one node, so a value like "10.0.0.2 10.0.0.3" must not slip past a
+  # comma-only check (which would fan the bootstrap out and split brain).
+  if [[ "${NODES}" =~ [[:space:],] ]]; then
+    err "NODES must be a SINGLE node — bootstrapping >1 node splits brain (got: ${NODES}); pass one node, no comma- or space-separated list"
     exit 2
   fi
 

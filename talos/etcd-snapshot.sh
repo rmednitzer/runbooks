@@ -126,7 +126,8 @@ main() {
     err "NODES is required: name exactly one control-plane node to snapshot"
     exit 2
   fi
-  if [[ "${NODES}" == *,* ]]; then
+  # Reject a comma- OR whitespace-separated list (exactly one node).
+  if [[ "${NODES}" =~ [[:space:],] ]]; then
     err "NODES must be a SINGLE control-plane node for a snapshot (got: ${NODES})"
     exit 2
   fi

@@ -183,7 +183,9 @@ main() {
     err "NODES is required: the SINGLE node to reset"
     exit 2
   fi
-  if [[ "${NODES}" == *,* ]]; then
+  # Reject a comma- OR whitespace-separated list so "10.0.0.2 10.0.0.3" cannot
+  # slip past a comma-only check and wipe two nodes at once.
+  if [[ "${NODES}" =~ [[:space:],] ]]; then
     err "NODES must be a SINGLE node — reset one node at a time (got: ${NODES})"
     exit 2
   fi

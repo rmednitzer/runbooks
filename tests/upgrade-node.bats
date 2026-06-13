@@ -51,6 +51,12 @@ teardown() { common_teardown; }
   [[ "${output}" == *"one at a time"* ]]
 }
 
+@test "upgrade: space-separated NODES exits 2 (one node at a time)" {
+  run env NODES="10.0.0.2 10.0.0.3" IMAGE="${GOOD_IMAGE}" bash "${REPO_ROOT}/${SCRIPT}"
+  [ "${status}" -eq 2 ]
+  [[ "${output}" == *"one at a time"* ]]
+}
+
 @test "upgrade: missing IMAGE exits 2" {
   run env -u IMAGE NODES=10.0.0.2 bash "${REPO_ROOT}/${SCRIPT}"
   [ "${status}" -eq 2 ]
