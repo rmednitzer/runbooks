@@ -162,7 +162,8 @@ main() {
     err "NODES is required: the SINGLE node to upgrade"
     exit 2
   fi
-  if [[ "${NODES}" == *,* ]]; then
+  # Reject a comma- OR whitespace-separated list (one node at a time).
+  if [[ "${NODES}" =~ [[:space:],] ]]; then
     err "NODES must be a SINGLE node — upgrade one at a time (got: ${NODES})"
     exit 2
   fi

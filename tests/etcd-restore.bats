@@ -57,6 +57,12 @@ teardown() { common_teardown; }
   [[ "${output}" == *"splits brain"* ]]
 }
 
+@test "restore: space-separated NODES refused (split-brain guard) exits 2" {
+  run env SNAPSHOT="${SNAP}" NODES="10.0.0.2 10.0.0.3" bash "${REPO_ROOT}/${SCRIPT}"
+  [ "${status}" -eq 2 ]
+  [[ "${output}" == *"splits brain"* ]]
+}
+
 @test "restore: missing snapshot file exits 1" {
   run env SNAPSHOT="${TEST_TMP}/nope.snapshot" NODES=10.0.0.2 bash "${REPO_ROOT}/${SCRIPT}"
   [ "${status}" -eq 1 ]

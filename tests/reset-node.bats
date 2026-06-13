@@ -41,6 +41,12 @@ teardown() { common_teardown; }
   [[ "${output}" == *"one node at a time"* ]]
 }
 
+@test "reset: space-separated NODES exits 2" {
+  run env NODES="10.0.0.2 10.0.0.3" bash "${REPO_ROOT}/${SCRIPT}"
+  [ "${status}" -eq 2 ]
+  [[ "${output}" == *"one node at a time"* ]]
+}
+
 @test "reset: invalid WIPE_MODE exits 2" {
   run env NODES=10.0.0.9 WIPE_MODE=bogus DRY_RUN=1 bash "${REPO_ROOT}/${SCRIPT}"
   [ "${status}" -eq 2 ]
