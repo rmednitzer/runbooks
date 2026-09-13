@@ -5,6 +5,16 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `.github/workflows/ci-gate.yml` — a single required `ci-success` status
+  that polls the three `lint.yml` jobs (`pre-commit`, `bats`, `secret scan`)
+  via the GitHub API and only succeeds once all three report `success` (a
+  `skipped` conclusion is accepted only for a job explicitly named in
+  `ALLOWED_SKIPPED_CHECKS`, currently empty). Lets branch protection require
+  one stable check name instead of three, so renaming or adding a job inside
+  `lint.yml` does not require re-touching protection settings.
+
 ### Changed
 
 - CI `lint.yml`: replaced the abandoned `pre-commit/action@v3.0.1`
