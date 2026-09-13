@@ -32,6 +32,17 @@
 #   exhaust pool metadata or behave surprisingly. This script inspects
 #   `lv_attr` and refuses anything that is not a plain linear/striped LV.
 #
+# Size forms and the -L / -l split (R-3)
+#   lvextend takes absolute or additive sizes with `-L|--size` (10G, +10G,
+#   +512M, 1.5T) but PERCENTAGE forms only with `-l|--extents`
+#   (+100%FREE, 50%VG, +10%PVS, 100%ORIGIN). Passing `+100%FREE` to `-L`
+#   is rejected by lvextend ("Invalid argument for --size"), so the script
+#   validates SIZE against exactly those two grammars up front (exit 2 on
+#   anything else, including shell metacharacters) and picks the matching
+#   flag. VG and LV are validated against the LVM name charset
+#   (`[A-Za-z0-9+_.][A-Za-z0-9+_.-]*`, no leading '-', not '.' or '..')
+#   before they reach any privileged command.
+#
 # Requirements (bash >= 4; see CLAUDE.md)
 #   - LVM2 userland: lvs, vgs, pvs, lvextend (+ pvresize when PV_RESIZE=1)
 #   - fsadm + resize2fs (ext2/3/4) or xfs_growfs (xfs) for --resizefs
@@ -44,6 +55,8 @@
 #   SIZE        lvextend size argument, e.g. +10G, +100%FREE, or an
 #               absolute 100G (required). NOTE: a leading '+' is additive
 #               and re-running repeats the extension — see above.
+#               Percentage forms (%FREE, %VG, %PVS, %ORIGIN) are passed
+#               with -l/--extents, everything else with -L/--size.
 #   PV_RESIZE   If 1, run pvresize on every PV in the VG before extending
 #               (use after the hypervisor grew an underlying disk).
 #   DRY_RUN     If 1, print actions without executing them.
@@ -78,7 +91,8 @@ Environment variables:
               +10G, +100%FREE) is ADDITIVE — re-running this script
               extends AGAIN, it is not idempotent. An absolute size
               (e.g. 100G) errors on re-run instead. Prefer absolute, or
-              check `lvs` first.
+              check `lvs` first. Accepted forms: [+]N[.N][k|m|g|t|p|e]
+              (passed as -L) or [+]N%{FREE,VG,PVS,ORIGIN} (passed as -l).
   PV_RESIZE   If 1, run pvresize on every PV in the VG first.
   DRY_RUN     If 1, print actions without executing.
 
@@ -119,6 +133,35 @@ fs_type_of() {
 mountpoint_of() {
   local lv_path="$1"
   findmnt -no TARGET --source "${lv_path}" 2> /dev/null || true
+}
+
+# R-3/R-4: VG and LV names reach privileged LVM commands (and a --select
+# expression) unquoted by LVM itself, so restrict them to the LVM name
+# charset before use. LVM allows [A-Za-z0-9+_.-], forbids a leading '-'
+# (it would parse as an option), and reserves '.' and '..'.
+validate_lvm_name() {
+  local what="$1" name="$2"
+  if [[ ! "${name}" =~ ^[A-Za-z0-9+_.][A-Za-z0-9+_.-]*$ || "${name}" == "." || "${name}" == ".." ]]; then
+    err "${what} '${name}' is not a valid LVM name (allowed: [A-Za-z0-9+_.-], no leading '-')"
+    exit 2
+  fi
+}
+
+# R-3: SIZE must be one of the two lvextend grammars. Percentage forms are
+# only valid with -l/--extents; unit forms only with -L/--size. A leading
+# '-' (shrink) is not an lvextend form at all, so it is rejected here too.
+# Sets SIZE_FLAG to the matching flag.
+SIZE_FLAG=""
+validate_size() {
+  local size="$1"
+  if [[ "${size}" =~ ^\+?[0-9]+(\.[0-9]+)?[kKmMgGtTpPeE]?([iI]?[bB])?$ ]]; then
+    SIZE_FLAG="-L"
+  elif [[ "${size}" =~ ^\+?[0-9]+%(FREE|VG|PVS|ORIGIN)$ ]]; then
+    SIZE_FLAG="-l"
+  else
+    err "SIZE '${size}' is not a valid lvextend size: use [+]N[.N][k|m|g|t|p|e] (e.g. +10G, 100G) or [+]N%{FREE,VG,PVS,ORIGIN} (e.g. +100%FREE)"
+    exit 2
+  fi
 }
 
 lv_attr_of() {
@@ -172,6 +215,11 @@ main() {
     err "SIZE is required (use --help for usage)"
     exit 2
   fi
+
+  # Validate operator input before anything privileged runs (R-3/R-4).
+  validate_lvm_name VG "${VG}"
+  validate_lvm_name LV "${LV}"
+  validate_size "${SIZE}"
 
   if [[ "${EUID}" -ne 0 ]]; then
     err "must run as root"
@@ -252,11 +300,13 @@ main() {
   # not have grown; print a precise manual-recovery hint either way.
   # `run` honours DRY_RUN. The ERR trap would normally fire on failure,
   # so we guard the call to print the recovery note first.
+  # SIZE_FLAG is -L for unit sizes and -l for percentage forms (set by
+  # validate_size); lvextend rejects a percentage under -L.
   if [[ "${DRY_RUN:-0}" == "1" ]]; then
-    run lvextend --resizefs -L "${SIZE}" -- "${lv_path}"
+    run lvextend --resizefs "${SIZE_FLAG}" "${SIZE}" -- "${lv_path}"
   else
-    log "+ lvextend --resizefs -L ${SIZE} -- ${lv_path}"
-    if ! lvextend --resizefs -L "${SIZE}" -- "${lv_path}"; then
+    log "+ lvextend --resizefs ${SIZE_FLAG} ${SIZE} -- ${lv_path}"
+    if ! lvextend --resizefs "${SIZE_FLAG}" "${SIZE}" -- "${lv_path}"; then
       err "lvextend --resizefs failed"
       if [[ "${fs_type}" == "xfs" ]]; then
         err "RECOVERY: if the LV grew but the FS did not, run: xfs_growfs ${mp}"
