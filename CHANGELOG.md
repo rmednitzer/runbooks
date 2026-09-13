@@ -5,6 +5,18 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- `storage/extend-lvm.sh`: the documented `SIZE=+100%FREE` form (and any
+  other `%FREE` / `%VG` / `%PVS` / `%ORIGIN` percentage) was passed to
+  `lvextend -L`, which only accepts unit sizes; lvextend rejected it with
+  "Invalid argument for --size" and the extension never ran. Percentage
+  forms are now passed with `-l`/`--extents`, unit forms keep `-L`. Found
+  while closing backlog items R-3/R-4: `VG`, `LV` and `SIZE` are now
+  validated against the LVM name charset and the two lvextend size
+  grammars before any privileged command runs (exit 2 otherwise). Five
+  new bats cases cover the `-l`/`-L` split and the accept/reject sets.
+
 ### Added
 
 - `.github/workflows/ci-gate.yml` — a single required `ci-success` status

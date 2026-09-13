@@ -73,6 +73,54 @@ teardown() { common_teardown; }
   not_called xfs_growfs
 }
 
+@test "extend(R-3): a percentage SIZE is passed with -l, not -L (DRY_RUN)" {
+  run env VG=data LV=app SIZE=+100%FREE DRY_RUN=1 bash "${REPO_ROOT}/${SCRIPT}"
+  [ "${status}" -eq 0 ]
+  [[ "${output}" == *"DRY_RUN: lvextend --resizefs -l +100%FREE"* ]]
+  [[ "${output}" != *"-L +100%FREE"* ]]
+  not_called lvextend
+}
+
+@test "extend(R-3): absolute and fractional unit sizes keep -L (DRY_RUN)" {
+  run env VG=data LV=app SIZE=100G DRY_RUN=1 bash "${REPO_ROOT}/${SCRIPT}"
+  [ "${status}" -eq 0 ]
+  [[ "${output}" == *"DRY_RUN: lvextend --resizefs -L 100G"* ]]
+  run env VG=data LV=app SIZE=+1.5T DRY_RUN=1 bash "${REPO_ROOT}/${SCRIPT}"
+  [ "${status}" -eq 0 ]
+  [[ "${output}" == *"DRY_RUN: lvextend --resizefs -L +1.5T"* ]]
+}
+
+@test "extend(R-3): a malformed SIZE exits 2 before any LVM tool runs" {
+  local bad
+  for bad in "10G; rm -rf /" "-10G" "+100%" "10G%FREE" "abc" "+10 G"; do
+    run env VG=data LV=app SIZE="${bad}" DRY_RUN=1 bash "${REPO_ROOT}/${SCRIPT}"
+    [ "${status}" -eq 2 ]
+    [[ "${output}" == *"not a valid lvextend size"* ]]
+  done
+  not_called lvextend
+  not_called pvresize
+}
+
+@test "extend(R-3/R-4): VG and LV outside the LVM name charset exit 2" {
+  local bad
+  for bad in "-data" "data/../root" "vg name" "vg;id" "." ".."; do
+    run env VG="${bad}" LV=app SIZE=+10G DRY_RUN=1 bash "${REPO_ROOT}/${SCRIPT}"
+    [ "${status}" -eq 2 ]
+    [[ "${output}" == *"not a valid LVM name"* ]]
+    run env VG=data LV="${bad}" SIZE=+10G DRY_RUN=1 bash "${REPO_ROOT}/${SCRIPT}"
+    [ "${status}" -eq 2 ]
+    [[ "${output}" == *"not a valid LVM name"* ]]
+  done
+  not_called lvextend
+  not_called pvresize
+}
+
+@test "extend(R-3/R-4): valid LVM names with '+', '_', '.' and '-' are accepted" {
+  run env VG=ubuntu-vg LV=app+data_1.0 SIZE=+10G DRY_RUN=1 bash "${REPO_ROOT}/${SCRIPT}"
+  [ "${status}" -eq 0 ]
+  [[ "${output}" == *"/dev/ubuntu-vg/app+data_1.0"* ]]
+}
+
 @test "extend(H4): refuses a thin volume (lv_attr type V)" {
   run env VG=data LV=thin SIZE=+10G DRY_RUN=1 LVS_ATTR="Vwi-aotz--" bash "${REPO_ROOT}/${SCRIPT}"
   [ "${status}" -eq 1 ]
