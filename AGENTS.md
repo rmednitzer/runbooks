@@ -3,6 +3,7 @@
 ## Repository-specific workflow
 
 Operator Bash procedures for storage, certificates, logs, recovery, networking, Talos and local security triage. Repeated fleet configuration belongs in automation; provisioning belongs in infra. Read `CONTRIBUTING.md`, script headers, and matching tests.
+
 - Target Bash 4+ on Linux with required utility features. Probe commands/options rather than assuming implementation from OS version. Talos scripts run on the operator host via talosctl and mTLS, never through a Talos node shell.
 - Scripts are self-contained with purpose, requirements, variables, privilege needs, preconditions, steps, stop conditions and recovery. Use `#!/usr/bin/env bash`, `set -euo pipefail`, quoted expansions, arrays, local variables, and existing log/warn/err helpers. Strict mode does not replace checking critical results.
 - Validate dependencies early, source-guard main, clean owned temporary files via EXIT traps, and preserve exit codes: 0 success, 1 runtime failure, 2 invalid arguments. Help must exit without operational effects.
@@ -129,6 +130,7 @@ product, edition, profile and justified exceptions. Preserve existing CTL-/POL- 
 Do not infer legal applicability, ISO conformance or certification from a mapping.
 
 Primary references:
+
 - [NIST SSDF](https://csrc.nist.gov/pubs/sp/800/218/final)
 - [OWASP ASVS](https://owasp.org/www-project-application-security-verification-standard/)
 - [MIT STPA handbook](https://psas.scripts.mit.edu/home/books-and-handbooks/)
