@@ -5,6 +5,10 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- Consolidate Codex, Claude Code and Copilot guidance with secure development, STPA and vulnerability reporting requirements.
+
 ### Fixed
 
 - `storage/extend-lvm.sh`: the documented `SIZE=+100%FREE` form (and any
