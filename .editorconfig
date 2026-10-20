@@ -25,3 +25,7 @@ indent_size = unset
 
 [Makefile]
 indent_style = tab
+
+# Python is used only by the repository-owned CI snapshot checker.
+[*.py]
+indent_size = 4
