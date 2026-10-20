@@ -45,3 +45,12 @@ issue.
 
 By contributing, you agree your contribution is licensed under
 [Apache License 2.0](./LICENSE).
+
+
+## Dependency automation
+
+Renovate policy is owned by this repository in `renovate.json5`. It does not
+inherit another project’s policy. Keep update grouping, release-age delays,
+major-version review and lock-maintenance behavior explicit here. Built-in
+Renovate presets supply standard defaults; repository-specific decisions remain
+local. Review policy changes and actual dependency extraction before merging.

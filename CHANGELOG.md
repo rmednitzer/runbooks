@@ -5,6 +5,8 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- Make Renovate policy self-contained in this repository, preserving local update rules and removing cross-repository policy inheritance.
+
 ### Changed
 
 - Consolidate Codex, Claude Code and Copilot guidance with secure development, STPA and vulnerability reporting requirements.
