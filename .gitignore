@@ -20,3 +20,7 @@ tmp/
 *.bats.log
 results/
 .coverage
+
+# CI helper bytecode is generated locally, never repository source.
+__pycache__/
+*.py[cod]

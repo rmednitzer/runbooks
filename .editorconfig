@@ -27,5 +27,8 @@ indent_size = unset
 indent_style = tab
 
 # Python is used only by the repository-owned CI snapshot checker.
-[*.py]
+[scripts/check_ci_checks.py]
+indent_size = 4
+
+[tests/test_ci_checks.py]
 indent_size = 4
